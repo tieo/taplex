@@ -5,4 +5,16 @@
     <string name="notif_title">WordTap is armed</string>
     <string name="notif_text">Tap the bubble, then tap a word.</string>
     <string name="stop">Stop</string>
+    <string name="a11y_label">WordTap word lookup</string>
+    <string name="a11y_description">Reads the words on screen so a tap on one shows its translation. Nothing is recorded: the text comes from the apps themselves, and a screenshot is taken only for screens that draw their text as a picture.</string>
+    <string name="needs_overlay">Allow WordTap to draw over other apps first.</string>
+    <string name="no_text_found">Nothing readable on this screen.</string>
+    <string name="no_entry">No dictionary entry.</string>
+    <string name="guessed">Machine translation, not a dictionary entry.</string>
+    <string name="tapped_form">tapped: %1$s</string>
+    <string name="form_of">%1$s is the %2$s of %3$s</string>
+    <string name="open_article">Full article on %1$s.wiktionary.org</string>
+    <string name="no_source_language">Source language not recognised</string>
+    <string name="unreadable">Could not read the screen</string>
+    <string name="downloading_model">Downloading %1$s to %2$s model…</string>
 </resources>

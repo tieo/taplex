@@ -1,6 +1,7 @@
 package de.tieo.wordtap
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -23,6 +24,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var prefs: Prefs
     private lateinit var status: TextView
+    private lateinit var dictionaries: TextView
     private lateinit var arm: Button
 
     private val languages: List<String> by lazy { TranslateLanguage.getAllLanguages().sorted() }
@@ -32,9 +34,14 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         prefs = Prefs(this)
         status = findViewById(R.id.status)
+        dictionaries = findViewById(R.id.dictionaries)
         arm = findViewById(R.id.arm)
 
         setUpLanguagePickers()
+
+        findViewById<Button>(R.id.wordLookup).setOnClickListener {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        }
 
         findViewById<Button>(R.id.overlayPermission).setOnClickListener {
             startActivity(
@@ -99,14 +106,57 @@ class MainActivity : AppCompatActivity() {
         ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 2)
     }
 
+    /**
+     * Read from the system rather than from the service's own flag: the setting survives
+     * this process, the flag does not.
+     */
+    private fun wordLookupEnabled(): Boolean {
+        val enabled = Settings.Secure.getString(
+            contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+        val name = ComponentName(this, WordTapAccessibilityService::class.java)
+        return enabled.split(':').any {
+            ComponentName.unflattenFromString(it) == name
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         val overlay = Settings.canDrawOverlays(this)
         status.text = buildString {
-            append(if (CaptureService.running) "Armed." else "Not armed.")
+            append("Word lookup: ")
+            append(if (wordLookupEnabled()) "on, nothing is recorded" else "off")
             append("\nOverlay permission: ")
             append(if (overlay) "granted" else "missing")
+            append("\nScreen capture fallback: ")
+            append(if (CaptureService.running) "armed, recording" else "not armed")
         }
-        arm.text = if (CaptureService.running) "Disarm" else "Arm WordTap"
+        arm.text = if (CaptureService.running) "Disarm" else "Arm screen capture fallback"
+        showDictionaries()
     }
+
+    /**
+     * Which dictionaries are installed, and where to put another one. A pack is a file
+     * rather than a download inside the app, so this says the folder it is copied into.
+     */
+    private fun showDictionaries() {
+        val installed = Dictionary.installed(this)
+        dictionaries.text = buildString {
+            if (installed.isEmpty()) {
+                append("No dictionary installed. Words fall back to machine translation.")
+            } else {
+                append("Dictionaries: ")
+                append(
+                    installed.joinToString(", ") { (gloss, word) ->
+                        "${name(word)} explained in ${name(gloss)}"
+                    }
+                )
+            }
+            append("\n")
+            append(Dictionary.directory(this@MainActivity).path)
+        }
+    }
+
+    private fun name(tag: String): String = Locale(tag).displayLanguage.ifEmpty { tag }
 }

@@ -25,6 +25,14 @@
             </intent-filter>
         </activity>
 
+        <!-- Transparent shim: the quick settings tile can only close the shade by starting an activity. -->
+        <activity
+            android:name=".LookupActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@style/Theme.WordTap.Transparent" />
+
         <!-- Transparent shim: MediaProjection consent can only be requested from an Activity. -->
         <activity
             android:name=".ProjectionRequestActivity"
@@ -37,6 +45,25 @@
             android:name=".CaptureService"
             android:exported="false"
             android:foregroundServiceType="mediaProjection" />
+
+
+        <!--
+            The lookup path that holds no screen capture session. Triggered by the system
+            accessibility button, reads the words from the node tree, and takes a single
+            screenshot only where an app draws its text instead of reporting it.
+        -->
+        <service
+            android:name=".WordTapAccessibilityService"
+            android:exported="true"
+            android:label="@string/a11y_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service" />
+        </service>
 
         <service
             android:name=".WordTapTileService"

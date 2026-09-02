@@ -200,7 +200,7 @@ class CaptureService : Service() {
                 toast("No frame yet, try again")
                 return@postDelayed
             }
-            overlay = OverlayController(this, windowManager, frame) {
+            overlay = OverlayController(this, windowManager, OverlayController.Source.Frame(frame)) {
                 overlay = null
                 bubble?.visibility = View.VISIBLE
             }.also { it.show() }

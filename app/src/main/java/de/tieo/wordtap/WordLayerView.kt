@@ -11,13 +11,20 @@ import android.view.MotionEvent
 import android.view.View
 
 /**
- * Shows the captured frame and the boxes of the words found in it. The frame is frozen on
- * purpose: the app underneath keeps scrolling, so live coordinates would drift away from
- * the ones the recogniser returned.
+ * The word boxes, and under them either a captured frame or the live screen.
+ *
+ * A captured frame is drawn frozen on purpose: the app underneath keeps scrolling, so live
+ * coordinates would drift away from the ones the recogniser returned. Words read from the
+ * node tree need no frame, because their boxes are screen coordinates the app itself
+ * reported, and the live screen shows through the scrim instead.
+ *
+ * [sourceWidth] is the width the word boxes were measured in, so boxes and frame scale
+ * together onto however wide this view ends up.
  */
-class FrozenScreenView(
+class WordLayerView(
     context: Context,
-    private val frame: Bitmap,
+    private val frame: Bitmap?,
+    private val sourceWidth: Int,
     private val onWordTapped: (Word) -> Unit,
     private val onMissTapped: () -> Unit
 ) : View(context) {
@@ -40,15 +47,17 @@ class FrozenScreenView(
         invalidate()
     }
 
-    private fun scale(): Float =
-        if (frame.width == 0) 1f else width.toFloat() / frame.width.toFloat()
+    fun scale(): Float =
+        if (sourceWidth == 0) 1f else width.toFloat() / sourceWidth.toFloat()
 
     override fun onDraw(canvas: Canvas) {
         val s = scale()
-        canvas.save()
-        canvas.scale(s, s)
-        canvas.drawBitmap(frame, 0f, 0f, null)
-        canvas.restore()
+        if (frame != null) {
+            canvas.save()
+            canvas.scale(s, s)
+            canvas.drawBitmap(frame, 0f, 0f, null)
+            canvas.restore()
+        }
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), dimPaint)
         for (word in words) {
             val paint = if (word === highlighted) highlightPaint else boxPaint

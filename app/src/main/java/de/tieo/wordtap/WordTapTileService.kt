@@ -6,7 +6,10 @@ import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 
-/** Arms and disarms WordTap from the quick settings shade. */
+/**
+ * Starts a lookup from the quick settings shade, or arms the screen capture fallback where
+ * word lookup is turned off.
+ */
 class WordTapTileService : TileService() {
 
     override fun onStartListening() {
@@ -15,6 +18,10 @@ class WordTapTileService : TileService() {
     }
 
     override fun onClick() {
+        if (WordTapAccessibilityService.running != null) {
+            collapseShadeAndLookUp()
+            return
+        }
         if (CaptureService.running) {
             startService(
                 Intent(this, CaptureService::class.java).setAction(CaptureService.ACTION_STOP)
@@ -38,10 +45,37 @@ class WordTapTileService : TileService() {
         }
     }
 
+    /**
+     * A tile click leaves the shade standing, and the shade is what a lookup would read.
+     * Collapsing it is only offered as part of starting an activity, so the lookup goes
+     * through [LookupActivity], which closes itself again immediately.
+     */
+    private fun collapseShadeAndLookUp() {
+        val intent = LookupActivity.intent(this)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startActivityAndCollapse(
+                PendingIntent.getActivity(
+                    this,
+                    1,
+                    intent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            )
+        } else {
+            @Suppress("DEPRECATION", "StartActivityAndCollapseDeprecated")
+            startActivityAndCollapse(intent)
+        }
+    }
+
     private fun refresh() {
         qsTile?.apply {
-            state = if (CaptureService.running) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
+            state = when {
+                WordTapAccessibilityService.running != null -> Tile.STATE_INACTIVE
+                CaptureService.running -> Tile.STATE_ACTIVE
+                else -> Tile.STATE_INACTIVE
+            }
             updateTile()
         }
     }
+
 }

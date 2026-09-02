@@ -7,8 +7,12 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.tasks.await
 
-/** One recognised word and where it sits in the captured bitmap. */
-data class Word(val text: String, val bounds: Rect)
+/**
+ * One word on screen, where it sits, and the line it was read from. The line is what tells
+ * a lookup which reading of the word is on the page: the same spelling is a noun in one
+ * sentence and a verb in the next.
+ */
+data class Word(val text: String, val bounds: Rect, val line: String = "")
 
 /** Everything the recogniser found in one frame. */
 data class Recognised(val words: List<Word>, val fullText: String, val blocks: List<String>) {
@@ -41,7 +45,7 @@ object Ocr {
             for (line in block.lines) {
                 for (element in line.elements) {
                     val box = element.boundingBox ?: continue
-                    words += Word(element.text, box)
+                    words += Word(element.text, box, line.text)
                 }
             }
         }
