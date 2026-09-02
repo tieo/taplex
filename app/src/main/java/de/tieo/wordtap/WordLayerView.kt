@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
+import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 
@@ -26,11 +27,25 @@ class WordLayerView(
     private val frame: Bitmap?,
     private val sourceWidth: Int,
     private val onWordTapped: (Word) -> Unit,
-    private val onMissTapped: () -> Unit
+    private val onMissTapped: () -> Unit,
+    private val onLongPressed: () -> Unit
 ) : View(context) {
+
+    private val gestures = GestureDetector(
+        context,
+        object : GestureDetector.SimpleOnGestureListener() {
+            override fun onLongPress(event: MotionEvent) {
+                longPressed = true
+                onLongPressed()
+            }
+        }
+    )
 
     private var words: List<Word> = emptyList()
     private var highlighted: Word? = null
+
+    /** A long press has already been answered; the release that follows is not a tap. */
+    private var longPressed = false
 
     private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
@@ -66,7 +81,12 @@ class WordLayerView(
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (gestures.onTouchEvent(event)) return true
         if (event.action != MotionEvent.ACTION_UP) return true
+        if (longPressed) {
+            longPressed = false
+            return true
+        }
         val s = scale()
         val hit = words.firstOrNull { it.bounds.scaled(s).contains(event.x, event.y) }
         if (hit == null) {

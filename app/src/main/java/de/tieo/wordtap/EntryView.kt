@@ -56,23 +56,27 @@ class EntryView(context: Context) : ScrollView(context) {
         tapped: String,
         entries: List<Entry>,
         glossLanguage: String,
-        translation: String?
+        translation: String?,
+        note: String? = null
     ) {
         column.removeAllViews()
 
         if (entries.isEmpty()) {
             column.addView(headline(tapped, null, null))
             column.addView(
-                line(
-                    context.getString(R.string.no_entry),
-                    size = 13f,
-                    color = MUTED
-                )
+                line(note ?: context.getString(R.string.no_entry), size = 13f, color = MUTED)
             )
             if (!translation.isNullOrBlank()) {
                 column.addView(line(translation, size = 17f))
                 column.addView(line(context.getString(R.string.guessed), size = 12f, color = MUTED))
             }
+            column.addView(
+                line(context.getString(R.string.open_article, glossLanguage), size = 13f, color = LINK)
+                    .apply {
+                        setPadding(0, dp(10), 0, 0)
+                        setOnClickListener { onOpenArticle?.invoke() }
+                    }
+            )
             return
         }
 

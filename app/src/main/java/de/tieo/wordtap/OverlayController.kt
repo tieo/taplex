@@ -40,10 +40,20 @@ class OverlayController(
         class Frame(val bitmap: Bitmap) : Source
 
         /**
-         * Words the apps on screen reported themselves. Their boxes are screen
-         * coordinates, so the live screen stays visible under them.
+         * Words the apps on screen reported themselves, over the frame the screen showed
+         * when the lookup started. Their boxes are screen coordinates, so they sit on that
+         * frame exactly.
+         *
+         * The frame is what makes the boxes trustworthy. Putting the overlay up changes the
+         * screen underneath: the keyboard closes, a list settles, a layout reflows, and
+         * boxes drawn over the live screen then point at where the words used to be. A
+         * frozen frame is also what the reader was looking at when they pressed.
          */
-        class Reported(val found: Recognised, val screenWidth: Int) : Source
+        class Reported(
+            val found: Recognised,
+            val screenWidth: Int,
+            val bitmap: Bitmap?
+        ) : Source
     }
 
     private val prefs = Prefs(context)
@@ -58,7 +68,10 @@ class OverlayController(
     private lateinit var screen: WordLayerView
 
     fun show() {
-        val frame = (source as? Source.Frame)?.bitmap
+        val frame = when (source) {
+            is Source.Frame -> source.bitmap
+            is Source.Reported -> source.bitmap
+        }
         val sourceWidth = when (source) {
             is Source.Frame -> source.bitmap.width
             is Source.Reported -> source.screenWidth
@@ -68,7 +81,8 @@ class OverlayController(
             frame,
             sourceWidth,
             onWordTapped = { word -> lookUp(word) },
-            onMissTapped = { dismiss() }
+            onMissTapped = { dismiss() },
+            onLongPressed = { openSettings() }
         )
 
         val container = object : FrameLayout(context) {
@@ -91,6 +105,10 @@ class OverlayController(
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
+            // Focusable, so back closes the layer, but kept out of the input method's
+            // business: without this, taking focus closes an open keyboard, which moves
+            // the screen the boxes were measured against.
+            flags = flags or WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM
             // The layer has to start at the physical top of the screen. A captured frame
             // covers the whole display, so a window inset below the status bar would draw
             // the frame shifted down, showing its captured clock under the live one and
@@ -165,10 +183,10 @@ class OverlayController(
      */
     private suspend fun explain(term: String, line: String, source: String, x: Int, y: Int) {
         val target = prefs.targetLanguage
-        val entries = withContext(Dispatchers.IO) {
-            val pack = dictionary ?: Dictionary.open(context, target, source)?.also { dictionary = it }
-            pack?.look(term, line).orEmpty()
+        val pack = withContext(Dispatchers.IO) {
+            dictionary ?: Dictionary.open(context, target, source)?.also { dictionary = it }
         }
+        val entries = withContext(Dispatchers.IO) { pack?.look(term, line).orEmpty() }
         if (entries.isNotEmpty()) {
             val view = popupAt(x, y)
             view.showEntries(term, entries, target, translation = null)
@@ -176,15 +194,41 @@ class OverlayController(
             return
         }
 
-        val guess = when (val result = translator.translate(term, source, target, allowDownload = true)) {
-            is WordTranslator.Result.Ok -> result.text
+        // A missing pack and a missing word are different answers: one is a word this
+        // dictionary does not have, the other is a language with no dictionary at all, and
+        // only the second can be fixed by installing something.
+        val note = if (pack == null) {
+            context.getString(R.string.no_pack, languageName(source), languageName(target))
+        } else {
+            null
+        }
+        // Translating a word into the language it is already in hands back the word, which
+        // says nothing and reads as an answer.
+        val guess = if (source == target) null else translate(term, source, target)
+        val view = popupAt(x, y)
+        view.showEntries(term, emptyList(), target, translation = guess, note = note)
+        view.onOpenArticle = { openArticle(term, target) }
+    }
+
+    private suspend fun translate(term: String, source: String, target: String): String? =
+        when (val result = translator.translate(term, source, target, allowDownload = true)) {
+            is WordTranslator.Result.Ok ->
+                // The model hands unknown words back unchanged; that is not a translation.
+                result.text.takeIf { !it.equals(term, ignoreCase = true) }
             is WordTranslator.Result.NeedsDownload ->
                 context.getString(R.string.downloading_model, result.source, result.target)
             is WordTranslator.Result.Failed -> null
         }
-        val view = popupAt(x, y)
-        view.showEntries(term, emptyList(), target, translation = guess)
-        view.onOpenArticle = { openArticle(term, target) }
+
+    private fun languageName(tag: String): String =
+        java.util.Locale(tag).displayLanguage.ifEmpty { tag }
+
+    /** Long press anywhere on the layer: WordTap's own screen, for languages and packs. */
+    private fun openSettings() {
+        val intent = Intent(context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        dismiss()
+        runCatching { context.startActivity(intent) }
     }
 
     /** The whole article, for when the entry in the pack is not the end of the question. */
@@ -241,7 +285,10 @@ class OverlayController(
         root?.let { windowManager.removeView(it) }
         root = null
         popup = null
-        (source as? Source.Frame)?.bitmap?.recycle()
+        when (source) {
+            is Source.Frame -> source.bitmap.recycle()
+            is Source.Reported -> source.bitmap?.recycle()
+        }
         onDismiss()
     }
 

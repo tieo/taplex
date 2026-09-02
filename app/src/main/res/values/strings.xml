@@ -10,6 +10,7 @@
     <string name="needs_overlay">Allow WordTap to draw over other apps first.</string>
     <string name="no_text_found">Nothing readable on this screen.</string>
     <string name="no_entry">No dictionary entry.</string>
+    <string name="no_pack">No %1$s dictionary installed, so nothing explains this word in %2$s.</string>
     <string name="guessed">Machine translation, not a dictionary entry.</string>
     <string name="tapped_form">tapped: %1$s</string>
     <string name="form_of">%1$s is the %2$s of %3$s</string>

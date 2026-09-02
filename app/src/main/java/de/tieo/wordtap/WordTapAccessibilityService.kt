@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityButtonController
 import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Rect
 import android.os.Build
 import android.provider.Settings
 import android.util.Log
@@ -66,28 +67,31 @@ class WordTapAccessibilityService : AccessibilityService() {
             return
         }
 
-        val reading = NodeWords.read(rootInActiveWindow, packageName)
+        // Read the words before anything of ours is on screen, then freeze what the screen
+        // was showing at that moment. Both describe the same instant, so the boxes and the
+        // picture under them agree however the app behind rearranges itself afterwards.
+        val reading = NodeWords.read(rootInActiveWindow, packageName, screenBounds())
         Log.d(
             "WordTap",
             "node words=" + reading.found.words.size +
                 " resolved=" + reading.resolvedCharacters +
                 " unresolved=" + reading.unresolvedCharacters
         )
-        if (reading.found.words.size >= MIN_REPORTED_WORDS &&
+        val reported = reading.found.words.size >= MIN_REPORTED_WORDS &&
             reading.resolvedCharacters >= reading.unresolvedCharacters
-        ) {
-            show(OverlayController.Source.Reported(reading.found, screenWidth()))
-            return
-        }
-        // Games, images, video and PDFs rendered as bitmaps report no text at all, a
-        // screenful of buttons reports too little to be worth a modal layer, and a browser
-        // reports its text without saying where each word sits. One frame, taken now, is
-        // the fallback: still no capture session, still nothing running between lookups.
+
         screenshot { frame ->
-            if (frame == null) {
-                toast(getString(R.string.no_text_found))
-            } else {
-                show(OverlayController.Source.Frame(frame))
+            when {
+                reported -> show(
+                    OverlayController.Source.Reported(reading.found, screenWidth(), frame)
+                )
+                // Games, images, video and PDFs rendered as bitmaps report no text at all,
+                // a screenful of buttons reports too little to be worth a modal layer, and
+                // a browser reports its text without saying where each word sits. The frame
+                // is read by the recogniser instead: still no capture session, still
+                // nothing running between lookups.
+                frame != null -> show(OverlayController.Source.Frame(frame))
+                else -> toast(getString(R.string.no_text_found))
             }
         }
     }
@@ -125,13 +129,15 @@ class WordTapAccessibilityService : AccessibilityService() {
         )
     }
 
-    private fun screenWidth(): Int =
+    private fun screenBounds(): Rect =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            windowManager.currentWindowMetrics.bounds.width()
+            Rect(windowManager.currentWindowMetrics.bounds)
         } else {
             @Suppress("DEPRECATION")
-            windowManager.defaultDisplay.width
+            Rect(0, 0, windowManager.defaultDisplay.width, windowManager.defaultDisplay.height)
         }
+
+    private fun screenWidth(): Int = screenBounds().width()
 
     private fun toast(message: String) =
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()

@@ -43,7 +43,11 @@ object NodeWords {
      * Every visible word in [root]'s tree. Nodes belonging to [skipPackage] are ignored, so
      * WordTap's own overlay never becomes a tap target for itself.
      */
-    fun read(root: AccessibilityNodeInfo?, skipPackage: String): Reading {
+    fun read(
+        root: AccessibilityNodeInfo?,
+        skipPackage: String,
+        screen: Rect
+    ): Reading {
         if (root == null) return Reading(Recognised(emptyList(), "", emptyList()), 0, 0)
 
         val words = mutableListOf<Word>()
@@ -60,7 +64,7 @@ object NodeWords {
             if (node.packageName?.toString() != skipPackage && node.isVisibleToUser) {
                 val text = node.text?.toString()
                 if (!text.isNullOrBlank()) {
-                    val found = wordsIn(node, text)
+                    val found = wordsIn(node, text).filter { visible(it, node, screen) }
                     if (found.isEmpty()) {
                         unresolved += text.length
                     } else {
@@ -79,6 +83,23 @@ object NodeWords {
             resolved,
             unresolved
         )
+    }
+
+    /**
+     * Whether a word is really on screen where its box says it is.
+     *
+     * A node reports the text it holds even when part of it is not drawn: a line scrolled
+     * out of its own list, a label under the keyboard, a view clipped by the panel it sits
+     * in. Such a word is reported at a position nobody can see, which on screen is a box
+     * over blank space. Its box has to lie inside the screen and inside the node's own
+     * window to count.
+     */
+    private fun visible(word: Word, node: AccessibilityNodeInfo, screen: Rect): Boolean {
+        if (word.bounds.isEmpty) return false
+        if (!screen.contains(word.bounds)) return false
+        val window = runCatching { node.window }.getOrNull() ?: return true
+        val windowBounds = Rect().also { window.getBoundsInScreen(it) }
+        return windowBounds.isEmpty || windowBounds.contains(word.bounds)
     }
 
     private fun wordsIn(node: AccessibilityNodeInfo, text: String): List<Word> {
