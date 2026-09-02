@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">WordTap</string>
+    <string name="tile_label">WordTap</string>
+    <string name="notif_channel">WordTap capture</string>
+    <string name="notif_title">WordTap is armed</string>
+    <string name="notif_text">Tap the bubble, then tap a word.</string>
+    <string name="stop">Stop</string>
+</resources>
