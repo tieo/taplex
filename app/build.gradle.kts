@@ -16,6 +16,17 @@ android {
         versionName = "0.1"
     }
 
+    // The bundled OCR models make a universal APK enormous; one ABI per APK keeps an
+    // install under 40 MB.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "x86_64")
+            isUniversalApk = false
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
