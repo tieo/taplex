@@ -38,30 +38,34 @@ A dictionary is a pack: one SQLite file holding the words of one language explai
 another, built from Wiktionary by `tools/build_pack.py`.
 
 ```
-curl -O https://kaikki.org/dictionary/German/kaikki.org-dictionary-German.jsonl
-uv run tools/build_pack.py --gloss-lang en --word-lang de \
-    --input kaikki.org-dictionary-German.jsonl --output en-de.db
-adb push en-de.db /sdcard/Android/data/de.tieo.wordtap/files/dictionaries/en-de.db
+curl -O https://kaikki.org/dictionary/Spanish/kaikki.org-dictionary-Spanish.jsonl
+uv run tools/build_pack.py --gloss-lang en --word-lang es \
+    --input kaikki.org-dictionary-Spanish.jsonl --output en-es.db
+adb push en-es.db /sdcard/Android/data/de.tieo.wordtap/files/dictionaries/en-es.db
 ```
 
 The name is `<language of the explanations>-<language of the words>.db`. WordTap identifies
-the language on screen and opens the pack that explains it in the phone's language. The
-German pack holds 94,000 entries in 113 MB.
+the language on screen and opens the pack that explains it in the phone's language, so a
+phone set to English reading Spanish uses `en-es.db`. That pack holds 117,000 entries in
+88 MB. kaikki.org publishes one dump per Wiktionary edition and language, and the edition is
+what fixes the language of the explanations: the English edition explains in English, the
+German edition in German, and so on for twenty-odd others.
 
 Inflected words are what a reader actually taps, so every spelling in an entry's inflection
-table is indexed against that entry, and so is every "plural of" entry Wiktionary has as a
-page of its own. Both carry what the spelling is, so a tap on "Speisen" answers with
-"Speise, plural" rather than with the bare lemma.
+table is indexed against that entry, and so is every "third person of" entry Wiktionary has
+as a page of its own. Both carry what the spelling is, so a tap on "cocinas" answers with
+"cocina, plural" rather than with the bare lemma.
 
 ## Which reading of the word
 
-A spelling usually leads to several entries. "Speisen" is the plural of the noun "Speise"
-and a form of the verb "speisen", and in "die Zubereitung der Speisen" only one of them is
-what the sentence says. The line the word was read from is kept with it, the words around it
-are looked up in the same pack, and what those can be decides: a word that can be an article
+A spelling usually leads to several entries. "cocina" is the noun for a kitchen and the
+third person present of the verb "cocinar", and "la cocina" and "donde se cocina" are not
+the same word. The line the word was read from is kept with it, the words around it are
+looked up in the same pack, and what those can be decides: a word that can be an article
 pulls the reading towards a noun, one that can only be a pronoun pulls it towards a verb.
-Nothing in that is written in terms of any one language; it is stated in parts of speech,
-which every pack carries.
+The signal from the sentence outweighs every other preference, which is the point of having
+it. Nothing in this is written in terms of any one language; it is stated in parts of
+speech, which every pack carries.
 
 A word with no entry says so, and shows the on-device machine translation underneath, marked
 as the guess it is.
@@ -84,8 +88,13 @@ capture consent when it is armed.
 ## State
 
 Working and tested on an API 36 emulator: node reading, screenshot fallback, word hit
-testing, dictionary entries with senses and examples, and the ranking that picks the reading
-that fits the sentence.
+testing, and dictionary entries with senses and examples. The ranking that picks the reading
+fitting the sentence is covered by unit tests against the readings the Spanish pack actually
+holds.
+
+Reinstalling the APK leaves the accessibility connection stale: the node tree comes back
+empty and `takeScreenshot` fails with an internal error until the service is switched off
+and on again.
 
 Rough edges worth fixing next:
 

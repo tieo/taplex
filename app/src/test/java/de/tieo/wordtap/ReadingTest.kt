@@ -4,79 +4,85 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * The readings and neighbour parts of speech here are what the German pack built from
- * Wiktionary actually holds for these words, so these cases are the real ones: "Speisen" is
- * the plural of the noun "Speise" and also the verb "speisen", and "der" is an article, a
- * pronoun and a name at once.
+ * The readings and the parts of speech here are what the Spanish pack built from Wiktionary
+ * actually holds: "cocina" is the noun for a kitchen and the third person present of the
+ * verb "cocinar", "la" is an article, a noun and a pronoun at once, and "se" is a pronoun.
+ * Which of the two a reader means is decided by the sentence, so these are the cases that
+ * decide it.
  */
 class ReadingTest {
 
-    private val speiseNoun = Entry(
-        lemma = "Speise",
+    private val kitchen = Entry(
+        lemma = "cocina",
         pos = "noun",
-        ipa = null,
-        senses = listOf(sense("meal, fare"), sense("dish")),
-        label = "plural"
-    )
-    private val speisenVerb = Entry(
-        lemma = "speisen",
-        pos = "verb",
-        ipa = null,
-        senses = List(5) { sense("to dine $it") },
+        ipa = "/koˈt͡ʃina/",
+        senses = listOf(sense("kitchen"), sense("cuisine"), sense("stove")),
         label = null
     )
-    private val speisNoun = Entry(
-        lemma = "Speis",
-        pos = "noun",
+    private val toCook = Entry(
+        lemma = "cocinar",
+        pos = "verb",
         ipa = null,
-        senses = listOf(sense("larder")),
-        label = "plural"
+        senses = listOf(sense("to cook")),
+        label = "indicative present singular third person"
     )
 
-    private val article = setOf("article", "name", "pron")
+    private val article = setOf("article", "noun", "pron")
     private val pronoun = setOf("pron")
 
     @Test
-    fun `a word after an article is the noun`() {
+    fun `after an article the word is the noun`() {
         val ranked = Reading.rank(
-            tapped = "Speisen",
-            candidates = listOf(speisenVerb, speiseNoun, speisNoun),
+            tapped = "cocina",
+            candidates = listOf(toCook, kitchen),
             beforePos = article,
             afterPos = emptySet()
         )
-        assertEquals("Speise", ranked.first().lemma)
+        assertEquals("cocina", ranked.first().lemma)
     }
 
     @Test
-    fun `a word after a pronoun is the verb`() {
+    fun `after a pronoun the word is the verb`() {
         val ranked = Reading.rank(
-            tapped = "speisen",
-            candidates = listOf(speiseNoun, speisenVerb),
+            tapped = "cocina",
+            candidates = listOf(kitchen, toCook),
             beforePos = pronoun,
             afterPos = emptySet()
         )
-        assertEquals("speisen", ranked.first().lemma)
+        assertEquals("cocinar", ranked.first().lemma)
     }
 
     @Test
-    fun `without context the entry the word is the lemma of comes first`() {
+    fun `with nothing to go on the entry the word is the lemma of comes first`() {
         val ranked = Reading.rank(
-            tapped = "speisen",
-            candidates = listOf(speiseNoun, speisenVerb),
+            tapped = "cocina",
+            candidates = listOf(toCook, kitchen),
             beforePos = emptySet(),
             afterPos = emptySet()
         )
-        assertEquals("speisen", ranked.first().lemma)
+        assertEquals("cocina", ranked.first().lemma)
     }
 
     @Test
     fun `neighbours come from the line the word was read from`() {
         val (before, after) = Reading.neighbours(
-            "hygienische Zubereitung der Speisen eine wichtige Rolle",
-            "Speisen"
+            "• cocina (habitación), lugar donde se cocina;",
+            "cocina"
         )
-        assertEquals("der", before)
-        assertEquals("eine", after)
+        // The first occurrence is the one at the start of the line, whose neighbour on the
+        // left is nothing at all.
+        assertEquals(null, before)
+        assertEquals("habitación", after)
+    }
+
+    @Test
+    fun `punctuation around a word does not hide its neighbours`() {
+        val (before, after) = Reading.neighbours(
+            "el arte de cocinar, la gastronomía.",
+            "gastronomía"
+        )
+        assertEquals("la", before)
+        assertEquals(null, after)
     }
 
     private fun sense(gloss: String) = Sense(gloss, emptyList(), emptyList())

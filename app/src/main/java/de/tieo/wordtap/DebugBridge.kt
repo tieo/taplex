@@ -38,6 +38,7 @@ object DebugState {
                                 .put("top", word.bounds.top)
                                 .put("right", word.bounds.right)
                                 .put("bottom", word.bounds.bottom)
+                                .put("line", word.line)
                         )
                     }
                 }

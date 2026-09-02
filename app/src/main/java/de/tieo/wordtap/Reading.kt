@@ -59,15 +59,18 @@ object Reading {
         // ranked rather than added up: a word that can be an article and a pronoun at once
         // is an article far more often when something follows it that can be a noun, so the
         // stronger reading decides instead of the two cancelling out.
+        // The weights are set so that a signal from the sentence outweighs every
+        // preference below it put together: those preferences are what to fall back on
+        // when the sentence says nothing, not something to be weighed against it.
         when {
             beforePos.any { it in BEFORE_NOUN } -> score += when {
-                pos in NOUNISH -> 6
-                pos in MODIFIER -> 3
-                else -> -4
+                pos in NOUNISH -> 10
+                pos in MODIFIER -> 5
+                else -> -6
             }
             beforePos.any { it in BEFORE_VERB } -> score += when {
-                pos == "verb" -> 4
-                pos in NOUNISH -> -1
+                pos == "verb" -> 8
+                pos in NOUNISH -> -3
                 else -> 0
             }
         }
