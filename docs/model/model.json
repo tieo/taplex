@@ -1,0 +1,181 @@
+{
+  "requirements": [
+    {
+      "relations": [{ "role": "Lives in", "to": "VIEW-HOME" }],
+      "statement": "Someone who has just installed the app can see what is still missing before a lookup will work, and reach the screen that fixes it.",
+      "status": "Built",
+      "tag": "REQ",
+      "title": "Setup is visible and reachable",
+      "uid": "REQ-SETUP"
+    },
+    {
+      "relations": [{ "role": "Lives in", "to": "VIEW-HOME" }],
+      "statement": "A dictionary is added from inside the app, over the network, without a computer.",
+      "status": "Built",
+      "tag": "REQ",
+      "title": "Dictionaries install themselves",
+      "uid": "REQ-INSTALL"
+    },
+    {
+      "relations": [{ "role": "Lives in", "to": "VIEW-HOME" }],
+      "statement": "A build that takes minutes shows what it is doing and can be stopped.",
+      "status": "Built",
+      "tag": "REQ",
+      "title": "A long build is legible",
+      "uid": "REQ-PROGRESS"
+    },
+    {
+      "relations": [{ "role": "Lives in", "to": "VIEW-LAYER" }],
+      "statement": "Every word on screen is a target of its own, and the picture under the boxes is the screen as it was when the lookup started.",
+      "status": "Built",
+      "tag": "REQ",
+      "title": "Word targets sit on a still picture",
+      "uid": "REQ-BOXES"
+    },
+    {
+      "relations": [{ "role": "Lives in", "to": "VIEW-ENTRY" }],
+      "statement": "A tapped word is answered with its dictionary entry: the lemma it belongs to, what form the tapped spelling is, and every sense with its marks and examples.",
+      "status": "Built",
+      "tag": "REQ",
+      "title": "An entry, not a translation",
+      "uid": "REQ-ENTRY"
+    },
+    {
+      "relations": [{ "role": "Lives in", "to": "VIEW-ENTRY" }],
+      "statement": "A word with no entry says so, and says whether that is because the word is missing or because no dictionary for its language is installed.",
+      "status": "Built",
+      "tag": "REQ",
+      "title": "Missing word and missing dictionary are different answers",
+      "uid": "REQ-MISSING"
+    }
+  ],
+  "states": [
+    {
+      "kind": "Empty",
+      "relations": [{ "role": "State of", "to": "VIEW-HOME" }],
+      "renders": ["main-nothing-set-up-phone.png"],
+      "statement": "Fresh install: nothing is permitted and no dictionary exists.",
+      "status": "Built",
+      "tag": "STATE",
+      "title": "Nothing set up",
+      "uid": "STATE-HOME-FRESH"
+    },
+    {
+      "relations": [{ "role": "State of", "to": "VIEW-HOME" }],
+      "renders": ["main-no-dictionaries-phone.png"],
+      "statement": "Permissions are granted, but no language has been added yet, so lookups fall back to machine translation.",
+      "status": "Built",
+      "tag": "STATE",
+      "title": "No dictionaries",
+      "uid": "STATE-HOME-NODICT"
+    },
+    {
+      "relations": [{ "role": "State of", "to": "VIEW-HOME" }],
+      "renders": ["main-ready-phone.png"],
+      "statement": "Set up, with dictionaries installed and their sizes shown.",
+      "status": "Built",
+      "tag": "STATE",
+      "title": "Ready",
+      "uid": "STATE-HOME-READY"
+    },
+    {
+      "relations": [{ "role": "State of", "to": "VIEW-HOME" }],
+      "renders": ["main-building-phone.png"],
+      "statement": "A dictionary is downloading and being built, with progress and a way to stop.",
+      "status": "Built",
+      "tag": "STATE",
+      "title": "Building a dictionary",
+      "uid": "STATE-HOME-BUILDING"
+    },
+    {
+      "kind": "Failed",
+      "relations": [{ "role": "State of", "to": "VIEW-HOME" }],
+      "renders": ["main-failed-phone.png"],
+      "statement": "The build stopped: no dump for that language, or the network failed.",
+      "status": "Built",
+      "tag": "STATE",
+      "title": "Build failed",
+      "uid": "STATE-HOME-FAILED"
+    },
+    {
+      "relations": [{ "role": "State of", "to": "VIEW-ENTRY" }],
+      "renders": ["entry-found-phone.png"],
+      "statement": "The word is in the dictionary, in more than one reading, the fitting one first.",
+      "status": "Built",
+      "tag": "STATE",
+      "title": "Entry found",
+      "uid": "STATE-ENTRY-FOUND"
+    },
+    {
+      "kind": "Empty",
+      "relations": [{ "role": "State of", "to": "VIEW-ENTRY" }],
+      "renders": ["entry-none-phone.png"],
+      "statement": "The dictionary is installed but has no entry for this word; a machine translation is offered as the guess it is.",
+      "status": "Built",
+      "tag": "STATE",
+      "title": "No entry",
+      "uid": "STATE-ENTRY-NONE"
+    },
+    {
+      "kind": "Failed",
+      "relations": [{ "role": "State of", "to": "VIEW-ENTRY" }],
+      "renders": ["entry-no-pack-phone.png"],
+      "statement": "No dictionary for the language on screen is installed at all, which is a thing the reader can fix.",
+      "status": "Built",
+      "tag": "STATE",
+      "title": "No dictionary installed",
+      "uid": "STATE-ENTRY-NOPACK"
+    },
+    {
+      "relations": [{ "role": "State of", "to": "VIEW-LAYER" }],
+      "renders": ["layer-words-phone.png"],
+      "statement": "The frozen screen with a box around every word that was read.",
+      "status": "Built",
+      "tag": "STATE",
+      "title": "Words found",
+      "uid": "STATE-LAYER-WORDS"
+    }
+  ],
+  "stories": [],
+  "views": [
+    {
+      "relations": [],
+      "renders": ["main-ready-phone.png"],
+      "sources": [
+        "app/src/main/java/de/tieo/wordtap/WordTapScreen.kt",
+        "app/src/main/java/de/tieo/wordtap/MainActivity.kt"
+      ],
+      "statement": "The app's own screen: what is still to be allowed, which dictionaries are on the phone, and how to add one.",
+      "states": ["Empty", "Failed", "No dictionaries", "Ready", "Building a dictionary"],
+      "status": "Built",
+      "tag": "VIEW",
+      "title": "Home",
+      "uid": "VIEW-HOME"
+    },
+    {
+      "relations": [],
+      "renders": ["layer-words-phone.png"],
+      "sources": [
+        "app/src/main/java/de/tieo/wordtap/WordLayerView.kt",
+        "app/src/main/java/de/tieo/wordtap/OverlayController.kt"
+      ],
+      "statement": "The layer over another app: the screen as it was, with every word a target.",
+      "states": ["Words found"],
+      "status": "Built",
+      "tag": "VIEW",
+      "title": "Word layer",
+      "uid": "VIEW-LAYER"
+    },
+    {
+      "relations": [],
+      "renders": ["entry-found-phone.png"],
+      "sources": ["app/src/main/java/de/tieo/wordtap/EntryView.kt"],
+      "statement": "What a tapped word turns into: its entry, or an honest account of why there is none.",
+      "states": ["Entry found", "Empty", "Failed"],
+      "status": "Built",
+      "tag": "VIEW",
+      "title": "Entry card",
+      "uid": "VIEW-ENTRY"
+    }
+  ]
+}

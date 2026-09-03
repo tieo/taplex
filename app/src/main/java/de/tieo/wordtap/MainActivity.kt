@@ -2,161 +2,142 @@ package de.tieo.wordtap
 
 import android.Manifest
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.view.View
-import android.widget.AdapterView
-import android.widget.ArrayAdapter
-import android.widget.Button
-import android.widget.Spinner
-import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
-import com.google.mlkit.nl.translate.TranslateLanguage
-import java.util.Locale
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
-class MainActivity : AppCompatActivity() {
+/**
+ * The screen as the phone sees it: reads what is allowed and what is installed, and hands
+ * that to [WordTapScreen], which knows nothing about where any of it came from.
+ */
+class MainActivity : ComponentActivity() {
 
-    private lateinit var prefs: Prefs
-    private lateinit var status: TextView
-    private lateinit var dictionaries: TextView
-    private lateinit var arm: Button
-
-    private val languages: List<String> by lazy { TranslateLanguage.getAllLanguages().sorted() }
+    private val askNotifications =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-        prefs = Prefs(this)
-        status = findViewById(R.id.status)
-        dictionaries = findViewById(R.id.dictionaries)
-        arm = findViewById(R.id.arm)
-
-        setUpLanguagePickers()
-
-        findViewById<Button>(R.id.wordLookup).setOnClickListener {
-            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-        }
-
-        findViewById<Button>(R.id.overlayPermission).setOnClickListener {
-            startActivity(
-                Intent(
-                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.parse("package:$packageName")
-                )
-            )
-        }
-
-        arm.setOnClickListener {
-            if (CaptureService.running) {
-                startService(Intent(this, CaptureService::class.java).setAction(CaptureService.ACTION_STOP))
-            } else {
-                if (!Settings.canDrawOverlays(this)) {
-                    status.text = "Allow drawing over other apps first."
-                    return@setOnClickListener
-                }
-                requestNotificationPermission()
-                startActivity(ProjectionRequestActivity.intent(this))
-            }
-        }
+        setContent { MaterialTheme { Main() } }
+        requestNotificationPermission()
     }
-
-    private fun setUpLanguagePickers() {
-        val sourceEntries = listOf(Prefs.AUTO) + languages
-        val source = findViewById<Spinner>(R.id.source)
-        source.adapter = adapterOf(sourceEntries.map { label(it) })
-        source.setSelection(sourceEntries.indexOf(prefs.sourceLanguage).coerceAtLeast(0))
-        source.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                prefs.sourceLanguage = sourceEntries[position]
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
-        }
-
-        val target = findViewById<Spinner>(R.id.target)
-        target.adapter = adapterOf(languages.map { label(it) })
-        target.setSelection(languages.indexOf(prefs.targetLanguage).coerceAtLeast(0))
-        target.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                prefs.targetLanguage = languages[position]
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
-        }
-    }
-
-    private fun adapterOf(entries: List<String>) =
-        ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, entries)
-
-    private fun label(tag: String): String =
-        if (tag == Prefs.AUTO) "Detect automatically"
-        else "${Locale(tag).displayLanguage} ($tag)"
 
     private fun requestNotificationPermission() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-            == PackageManager.PERMISSION_GRANTED
-        ) return
-        ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 2)
-    }
-
-    /**
-     * Read from the system rather than from the service's own flag: the setting survives
-     * this process, the flag does not.
-     */
-    private fun wordLookupEnabled(): Boolean {
-        val enabled = Settings.Secure.getString(
-            contentResolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        ) ?: return false
-        val name = ComponentName(this, WordTapAccessibilityService::class.java)
-        return enabled.split(':').any {
-            ComponentName.unflattenFromString(it) == name
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
         }
+        askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+}
+
+@Composable
+private fun Main() {
+    val context = LocalContext.current
+    val build by PackService.states().collectAsStateWithLifecycle()
+    val prefs = remember { Prefs(context) }
+
+    // Permissions are granted on other screens and dictionaries appear as a build finishes,
+    // so what the phone says is read again whenever this comes back into view.
+    var reread by remember { mutableIntStateOf(0) }
+    var picking by remember { mutableStateOf(false) }
+    LaunchedEffect(build) { reread++ }
+
+    val state = remember(reread, build) {
+        UiState(
+            lookupEnabled = lookupEnabled(context),
+            canDrawOverlay = Settings.canDrawOverlays(context),
+            glossLanguage = prefs.targetLanguage,
+            installed = Dictionary.installed(context).map { (gloss, word) ->
+                InstalledPack(word, gloss, Dictionary.file(context, gloss, word).length())
+            },
+            build = build
+        )
     }
 
-    override fun onResume() {
-        super.onResume()
-        val overlay = Settings.canDrawOverlays(this)
-        status.text = buildString {
-            append("Word lookup: ")
-            append(if (wordLookupEnabled()) "on, nothing is recorded" else "off")
-            append("\nOverlay permission: ")
-            append(if (overlay) "granted" else "missing")
-            append("\nScreen capture fallback: ")
-            append(if (CaptureService.running) "armed, recording" else "not armed")
-        }
-        arm.text = if (CaptureService.running) "Disarm" else "Arm screen capture fallback"
-        showDictionaries()
-    }
-
-    /**
-     * Which dictionaries are installed, and where to put another one. A pack is a file
-     * rather than a download inside the app, so this says the folder it is copied into.
-     */
-    private fun showDictionaries() {
-        val installed = Dictionary.installed(this)
-        dictionaries.text = buildString {
-            if (installed.isEmpty()) {
-                append("No dictionary installed. Words fall back to machine translation.")
-            } else {
-                append("Dictionaries: ")
-                append(
-                    installed.joinToString(", ") { (gloss, word) ->
-                        "${name(word)} explained in ${name(gloss)}"
-                    }
+    WordTapScreen(
+        state = state,
+        actions = ScreenActions(
+            onEnableLookup = {
+                context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            },
+            onAllowOverlay = {
+                context.startActivity(
+                    Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:${context.packageName}")
+                    )
                 )
-            }
-            append("\n")
-            append(Dictionary.directory(this@MainActivity).path)
-        }
-    }
+            },
+            onAddDictionary = { picking = true },
+            onDeleteDictionary = { pack ->
+                Dictionary.file(context, pack.glossLanguage, pack.wordLanguage).delete()
+                reread++
+            },
+            onCancelBuild = { PackService.cancel(context) }
+        )
+    )
 
-    private fun name(tag: String): String = Locale(tag).displayLanguage.ifEmpty { tag }
+    if (picking) {
+        val languages = remember(state.glossLanguage) { PackSource.languages(state.glossLanguage) }
+        AlertDialog(
+            onDismissRequest = { picking = false },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { picking = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+            title = { Text(stringResource(R.string.pick_language)) },
+            text = {
+                LazyColumn {
+                    items(languages) { language ->
+                        TextButton(onClick = {
+                            picking = false
+                            PackService.start(context, state.glossLanguage, language.code)
+                        }) {
+                            Text(language.name)
+                        }
+                    }
+                }
+            }
+        )
+    }
+}
+
+/**
+ * Read from the system rather than from the service's own flag: the setting outlives this
+ * process, the flag does not.
+ */
+private fun lookupEnabled(context: Context): Boolean {
+    val enabled = Settings.Secure.getString(
+        context.contentResolver,
+        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+    ) ?: return false
+    val name = ComponentName(context, WordTapAccessibilityService::class.java)
+    return enabled.split(':').any { ComponentName.unflattenFromString(it) == name }
 }

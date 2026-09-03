@@ -18,4 +18,24 @@
     <string name="no_source_language">Source language not recognised</string>
     <string name="unreadable">Could not read the screen</string>
     <string name="downloading_model">Downloading %1$s to %2$s model…</string>
+    <string name="cancel">Cancel</string>
+    <string name="pack_channel">Dictionary downloads</string>
+    <string name="pack_building">Building the %1$s dictionary</string>
+    <string name="pack_missing">Wiktionary has no %1$s dictionary to build from.</string>
+    <string name="setup_title">Setup</string>
+    <string name="setup_lookup">Word lookup (accessibility)</string>
+    <string name="setup_overlay">Draw over other apps</string>
+    <string name="turn_on">Turn on</string>
+    <string name="granted">Allowed</string>
+    <string name="dictionaries_title">Dictionaries</string>
+    <string name="no_dictionaries">None yet. Add the language you read, and words will be explained rather than translated.</string>
+    <string name="add_dictionary">Add a dictionary</string>
+    <string name="pick_language">Language to look up</string>
+    <string name="pack_detail">Explained in %1$s · %2$s</string>
+    <string name="pack_progress">%1$s of %2$s downloaded · %3$d entries</string>
+    <string name="explained_in">Explanations are in %1$s, the language this phone is set to.</string>
+    <string name="delete">Delete</string>
+    <string name="pack_failed">The %1$s dictionary could not be built.</string>
+    <string name="how_title">How to use it</string>
+    <string name="how_body">Press the accessibility button, or the WordTap tile in quick settings, and the screen freezes with a box around every word. Tap one for its entry: what it means, in how many senses, how it is used, and a link to the full article. Tap anywhere else or press back to return. Long press the layer to come back here.\n\nNothing is recorded. The words are read from the apps on screen, and only where an app draws its text instead of reporting it does WordTap take a single screenshot to read.</string>
 </resources>

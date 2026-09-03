@@ -1,0 +1,10 @@
+{
+  "title": "WordTap",
+  "subtitle": "what the app shows, and what each screen has to do",
+  "shapes": ["phone"],
+  "renders": {
+    "command": ["./tools/make-renders.sh"],
+    "dir": "../..",
+    "statement": "renders every declared state through Paparazzi, without a device"
+  }
+}
