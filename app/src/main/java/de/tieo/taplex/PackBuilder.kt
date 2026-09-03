@@ -73,7 +73,9 @@ object PackBuilder {
     }
 
     private fun schema(db: SQLiteDatabase) {
-        db.execSQL("PRAGMA journal_mode = OFF")
+        // Setting the journal mode answers with the mode the database ended up in, and
+        // execSQL refuses any statement that returns a row.
+        db.rawQuery("PRAGMA journal_mode = OFF", null).use { it.moveToFirst() }
         db.execSQL("PRAGMA synchronous = OFF")
         db.execSQL("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
         db.execSQL(
@@ -130,13 +132,15 @@ object PackBuilder {
                         )
                     }
                 }
-                if (entry.senses.isEmpty()) continue
+                // An entry whose senses were all links elsewhere ("plural of casa") is
+                // carried by those links, not by a row with nothing under the lemma.
+                if (entry.senses.length() == 0) continue
 
                 id++
                 written++
                 db.execSQL(
                     "INSERT INTO entries (id, lemma, key, pos, ipa, senses) VALUES (?, ?, ?, ?, ?, ?)",
-                    arrayOf(id, entry.word, key, entry.pos, entry.ipa, deflate(entry.senses))
+                    arrayOf(id, entry.word, key, entry.pos, entry.ipa, deflate(entry.senses.toString()))
                 )
                 db.execSQL(
                     "INSERT OR IGNORE INTO forms (key, entry_id, label) VALUES (?, ?, NULL)",
@@ -178,6 +182,9 @@ object PackBuilder {
         )
         db.execSQL("DROP TABLE links")
         db.execSQL("CREATE INDEX entries_key ON entries (key)")
+        // The links table is most of what was written and none of what is kept: dropping it
+        // only frees pages inside the file, so without this the pack stays twice its size.
+        db.execSQL("VACUUM")
         for ((key, value) in listOf(
             "gloss_lang" to glossLanguage,
             "word_lang" to wordLanguage,
@@ -194,7 +201,7 @@ object PackBuilder {
         val word: String,
         val pos: String?,
         val ipa: String?,
-        val senses: String,
+        val senses: JSONArray,
         val forms: List<Pair<String, String?>>,
         val links: List<Pair<String, String?>>
     )
@@ -231,7 +238,7 @@ object PackBuilder {
 
         val name = word?.trim().orEmpty()
         if (name.isEmpty()) return null
-        return Parsed(name, pos, ipa, senses.toString(), forms, links)
+        return Parsed(name, pos, ipa, senses, forms, links)
     }
 
     private fun readSenses(reader: JsonReader): Pair<JSONArray, List<Pair<String, String?>>> {

@@ -80,7 +80,7 @@ class OverlayController(
             context,
             frame,
             sourceWidth,
-            onTaplexped = { word -> lookUp(word) },
+            onWordTapped = { word -> lookUp(word) },
             onMissTapped = { dismiss() },
             onLongPressed = { openSettings() }
         )
@@ -184,7 +184,16 @@ class OverlayController(
     private suspend fun explain(term: String, line: String, source: String, x: Int, y: Int) {
         val target = prefs.targetLanguage
         val pack = withContext(Dispatchers.IO) {
-            dictionary ?: Dictionary.open(context, target, source)?.also { dictionary = it }
+            // The open pack is kept between lookups, but only for the pair it was opened
+            // for: a screen in another language must not be answered out of it.
+            val open = dictionary
+            if (open != null && open.glossLanguage == target && open.wordLanguage == source) {
+                open
+            } else {
+                open?.close()
+                dictionary = null
+                Dictionary.open(context, target, source)?.also { dictionary = it }
+            }
         }
         val entries = withContext(Dispatchers.IO) { pack?.look(term, line).orEmpty() }
         if (entries.isNotEmpty()) {

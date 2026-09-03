@@ -26,7 +26,7 @@ class WordLayerView(
     context: Context,
     private val frame: Bitmap?,
     private val sourceWidth: Int,
-    private val onTaplexped: (Word) -> Unit,
+    private val onWordTapped: (Word) -> Unit,
     private val onMissTapped: () -> Unit,
     private val onLongPressed: () -> Unit
 ) : View(context) {
@@ -94,7 +94,7 @@ class WordLayerView(
         } else {
             highlighted = hit
             invalidate()
-            onTaplexped(hit)
+            onWordTapped(hit)
         }
         return true
     }

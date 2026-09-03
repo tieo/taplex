@@ -31,6 +31,8 @@
     <string name="no_dictionaries">None yet. Add the language you read, and words will be explained rather than translated.</string>
     <string name="add_dictionary">Add a dictionary</string>
     <string name="pick_language">Language to look up</string>
+    <string name="search_language">Search</string>
+    <string name="no_language_matches">No language by that name.</string>
     <string name="pack_detail">Explained in %1$s · %2$s</string>
     <string name="pack_progress">%1$s of %2$s downloaded · %3$d entries</string>
     <string name="explained_in">Explanations are in %1$s, the language this phone is set to.</string>

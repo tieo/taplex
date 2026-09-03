@@ -59,6 +59,19 @@ object PackSource {
     }
 
     /**
+     * The languages out of [all] whose name answers [query], the ones starting with it
+     * first, so a typed prefix reaches the language before a name that merely contains it.
+     */
+    fun matching(all: List<Available>, query: String): List<Available> {
+        val needle = query.trim()
+        if (needle.isEmpty()) return all
+        val (starts, contains) = all
+            .filter { it.name.contains(needle, ignoreCase = true) }
+            .partition { it.name.startsWith(needle, ignoreCase = true) }
+        return starts + contains
+    }
+
+    /**
      * The size of a dump as it will be transferred, or null when there is no such dump.
      * kaikki serves these gzipped, so this is a tenth of the JSON that arrives.
      */

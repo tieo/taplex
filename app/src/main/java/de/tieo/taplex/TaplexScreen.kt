@@ -18,6 +18,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -129,6 +130,44 @@ fun TaplexScreen(state: UiState, actions: ScreenActions = ScreenActions()) {
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
+            }
+        }
+    }
+}
+
+/**
+ * The body of the language picker: a search box over the list of languages.
+ *
+ * Every language the phone can name is offered, because which of them kaikki has a dump for
+ * is only settled by asking for it, and that list is far too long to scroll. Typing is how
+ * the one language someone came for is reached, so the box sits above the list and the
+ * caller keeps [query], which is what makes the filtered list renderable on its own.
+ */
+@Composable
+fun LanguagePicker(
+    shown: List<PackSource.Available>,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onPick: (PackSource.Available) -> Unit
+) {
+    Column {
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(stringResource(R.string.search_language)) }
+        )
+        if (shown.isEmpty()) {
+            Text(
+                text = stringResource(R.string.no_language_matches),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(top = 12.dp)
+            )
+        }
+        LazyColumn {
+            items(shown) { language ->
+                TextButton(onClick = { onPick(language) }) { Text(language.name) }
             }
         }
     }

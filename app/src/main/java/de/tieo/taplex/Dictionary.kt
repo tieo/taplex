@@ -27,7 +27,8 @@ data class Entry(
 
 /**
  * A dictionary pack: the words of one language, explained in another, held in a SQLite file
- * built by `tools/build_pack.py` from Wiktionary.
+ * built from Wiktionary by [PackBuilder] on the phone, or by `tools/build_pack.py` on a
+ * computer, which write the same format.
  *
  * Packs are files rather than anything bundled in the APK: a single language runs to tens of
  * megabytes, only the languages someone actually reads are worth the space, and a pack can

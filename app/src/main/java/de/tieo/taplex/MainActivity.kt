@@ -12,8 +12,6 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -104,6 +102,8 @@ private fun Main() {
 
     if (picking) {
         val languages = remember(state.glossLanguage) { PackSource.languages(state.glossLanguage) }
+        var query by remember { mutableStateOf("") }
+        val shown = remember(languages, query) { PackSource.matching(languages, query) }
         AlertDialog(
             onDismissRequest = { picking = false },
             confirmButton = {},
@@ -114,16 +114,15 @@ private fun Main() {
             },
             title = { Text(stringResource(R.string.pick_language)) },
             text = {
-                LazyColumn {
-                    items(languages) { language ->
-                        TextButton(onClick = {
-                            picking = false
-                            PackService.start(context, state.glossLanguage, language.code)
-                        }) {
-                            Text(language.name)
-                        }
+                LanguagePicker(
+                    shown = shown,
+                    query = query,
+                    onQueryChange = { query = it },
+                    onPick = { language ->
+                        picking = false
+                        PackService.start(context, state.glossLanguage, language.code)
                     }
-                }
+                )
             }
         )
     }

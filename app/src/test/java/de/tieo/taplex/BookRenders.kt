@@ -1,11 +1,16 @@
 package de.tieo.taplex
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.Rect
 import android.view.View
 import android.widget.FrameLayout
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView as ComposeAndroidView
@@ -132,10 +137,10 @@ class BookRenders {
             AndroidView { context ->
                 EntryView(context).apply {
                     showEntries(
-                        tapped = "Küchenwerkzeug",
+                        tapped = "tuper",
                         entries = emptyList(),
                         glossLanguage = "en",
-                        translation = "kitchen tool"
+                        translation = "food container"
                     )
                 }
             }
@@ -148,11 +153,45 @@ class BookRenders {
             AndroidView { context ->
                 EntryView(context).apply {
                     showEntries(
-                        tapped = "when",
+                        tapped = "cocina",
                         entries = emptyList(),
                         glossLanguage = "en",
                         translation = null,
-                        note = "No English dictionary installed, so nothing explains this word in English."
+                        note = "No Spanish dictionary installed, so nothing explains this word in English."
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `language picker unfiltered`() {
+        val languages = PackSource.languages("en")
+        paparazzi.snapshot("pick-all-phone") {
+            MaterialTheme {
+                Surface {
+                    LanguagePicker(
+                        shown = languages,
+                        query = "",
+                        onQueryChange = {},
+                        onPick = {}
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `language picker searched`() {
+        val languages = PackSource.languages("en")
+        paparazzi.snapshot("pick-search-phone") {
+            MaterialTheme {
+                Surface {
+                    LanguagePicker(
+                        shown = PackSource.matching(languages, "spa"),
+                        query = "spa",
+                        onQueryChange = {},
+                        onPick = {}
                     )
                 }
             }
@@ -161,6 +200,15 @@ class BookRenders {
 
     @Test
     fun `word layer over a screen`() {
+        val sentence = listOf(
+            Word("La", Rect(60, 300, 130, 360), ""),
+            Word("cocina", Rect(150, 300, 420, 360), ""),
+            Word("es", Rect(440, 300, 520, 360), ""),
+            Word("la", Rect(540, 300, 610, 360), ""),
+            Word("habitación", Rect(60, 390, 470, 450), ""),
+            Word("más", Rect(490, 390, 610, 450), ""),
+            Word("grande", Rect(630, 390, 880, 450), "")
+        )
         paparazzi.snapshot("layer-words-phone") {
             AndroidView { context ->
                 FrameLayout(context).apply {
@@ -168,24 +216,12 @@ class BookRenders {
                     addView(
                         WordLayerView(
                             context = context,
-                            frame = null,
-                            sourceWidth = 1080,
-                            onTaplexped = {},
+                            frame = capturedFrame(sentence),
+                            sourceWidth = SOURCE_WIDTH,
+                            onWordTapped = {},
                             onMissTapped = {},
                             onLongPressed = {}
-                        ).apply {
-                            setWords(
-                                listOf(
-                                    Word("La", Rect(60, 300, 130, 360), ""),
-                                    Word("cocina", Rect(150, 300, 420, 360), ""),
-                                    Word("es", Rect(440, 300, 520, 360), ""),
-                                    Word("la", Rect(540, 300, 610, 360), ""),
-                                    Word("habitación", Rect(60, 390, 470, 450), ""),
-                                    Word("más", Rect(490, 390, 610, 450), ""),
-                                    Word("grande", Rect(630, 390, 880, 450), "")
-                                )
-                            )
-                        },
+                        ).apply { setWords(sentence) },
                         FrameLayout.LayoutParams(
                             FrameLayout.LayoutParams.MATCH_PARENT,
                             FrameLayout.LayoutParams.MATCH_PARENT
@@ -194,6 +230,31 @@ class BookRenders {
                 }
             }
         }
+    }
+
+    /**
+     * Stands in for the screenshot the layer freezes: the words are painted where their
+     * boxes are, so the render shows boxes sitting on the text they were read from rather
+     * than on empty space.
+     */
+    private fun capturedFrame(words: List<Word>): Bitmap {
+        val frame = Bitmap.createBitmap(SOURCE_WIDTH, SOURCE_HEIGHT, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(frame)
+        canvas.drawColor(Color.WHITE)
+        val ink = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(24, 24, 27)
+            textSize = 46f
+        }
+        for (word in words) {
+            canvas.drawText(word.text, word.bounds.left.toFloat(), word.bounds.bottom - 12f, ink)
+        }
+        return frame
+    }
+
+    private companion object {
+        /** The pixel size the word boxes below are measured in: a phone screen, portrait. */
+        const val SOURCE_WIDTH = 1080
+        const val SOURCE_HEIGHT = 2400
     }
 
     /** Renders a plain view inside a composition, since two of these screens are views. */
