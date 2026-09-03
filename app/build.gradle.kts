@@ -1,9 +1,22 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("app.cash.paparazzi")
 }
+
+// The release key never lives in the repository. Locally it is described by a properties
+// file outside the checkout; in CI the same four values arrive as environment variables,
+// with the keystore itself written from a base64 secret before the build.
+val keystoreProperties = Properties().apply {
+    val local = File(System.getProperty("user.home"), ".local/share/taplex/keystore.properties")
+    if (local.exists()) local.inputStream().use { load(it) }
+}
+
+fun signingValue(name: String, environment: String): String? =
+    System.getenv(environment) ?: keystoreProperties.getProperty(name)
 
 android {
     namespace = "de.tieo.taplex"
@@ -34,9 +47,24 @@ android {
         compose = true
     }
 
+    signingConfigs {
+        create("release") {
+            val store = signingValue("storeFile", "TAPLEX_KEYSTORE")
+            if (store != null && File(store).exists()) {
+                storeFile = File(store)
+                storePassword = signingValue("storePassword", "TAPLEX_STORE_PASSWORD")
+                keyAlias = signingValue("keyAlias", "TAPLEX_KEY_ALIAS")
+                keyPassword = signingValue("keyPassword", "TAPLEX_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            // An unsigned release APK is still worth building on a machine that has no key,
+            // so the config is only attached when there is one.
+            signingConfig = signingConfigs.getByName("release").takeIf { it.storeFile != null }
         }
     }
 
