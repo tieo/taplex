@@ -1,4 +1,4 @@
-package de.tieo.wordtap
+package de.tieo.taplex
 
 import android.app.Activity
 import android.content.Context

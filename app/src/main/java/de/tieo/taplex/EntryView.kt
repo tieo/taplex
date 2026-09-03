@@ -1,4 +1,4 @@
-package de.tieo.wordtap
+package de.tieo.taplex
 
 import android.content.Context
 import android.graphics.Color

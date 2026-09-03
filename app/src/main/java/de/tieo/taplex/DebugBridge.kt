@@ -1,4 +1,4 @@
-package de.tieo.wordtap
+package de.tieo.taplex
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -13,7 +13,7 @@ import java.io.File
  * What the last lookup saw, kept so it can be read off the device as a file.
  *
  * The overlay is a window of its own over whatever app is in front, and a screenshot does
- * not always contain it, so a picture is not a reliable way to check what WordTap found.
+ * not always contain it, so a picture is not a reliable way to check what Taplex found.
  * A log line is not either: logcat clips a line at a few kilobytes and a screenful of
  * words passes that easily.
  */
@@ -54,9 +54,9 @@ object DebugState {
  * lookup without anyone touching the screen, so the whole path can be exercised from a
  * shell.
  *
- *   adb shell am broadcast -a de.tieo.wordtap.DEBUG_DUMP -p de.tieo.wordtap
- *   adb pull /sdcard/Android/data/de.tieo.wordtap/files/debug_state.json
- *   adb shell am broadcast -a de.tieo.wordtap.DEBUG_LOOKUP -p de.tieo.wordtap
+ *   adb shell am broadcast -a de.tieo.taplex.DEBUG_DUMP -p de.tieo.taplex
+ *   adb pull /sdcard/Android/data/de.tieo.taplex/files/debug_state.json
+ *   adb shell am broadcast -a de.tieo.taplex.DEBUG_LOOKUP -p de.tieo.taplex
  *
  * Exported on purpose: a receiver that is not exported takes a shell broadcast on the
  * emulator and is silently dropped on some real devices. All either action can do is write
@@ -92,7 +92,7 @@ class DebugBridge(private val onLookup: () -> Unit) {
     }
 
     private companion object {
-        const val ACTION_DUMP = "de.tieo.wordtap.DEBUG_DUMP"
-        const val ACTION_LOOKUP = "de.tieo.wordtap.DEBUG_LOOKUP"
+        const val ACTION_DUMP = "de.tieo.taplex.DEBUG_DUMP"
+        const val ACTION_LOOKUP = "de.tieo.taplex.DEBUG_LOOKUP"
     }
 }

@@ -1,13 +1,13 @@
 <resources>
-    <string name="app_name">WordTap</string>
-    <string name="tile_label">WordTap</string>
-    <string name="notif_channel">WordTap capture</string>
-    <string name="notif_title">WordTap is armed</string>
+    <string name="app_name">Taplex</string>
+    <string name="tile_label">Taplex</string>
+    <string name="notif_channel">Taplex capture</string>
+    <string name="notif_title">Taplex is armed</string>
     <string name="notif_text">Tap the bubble, then tap a word.</string>
     <string name="stop">Stop</string>
-    <string name="a11y_label">WordTap word lookup</string>
+    <string name="a11y_label">Taplex word lookup</string>
     <string name="a11y_description">Reads the words on screen so a tap on one shows its translation. Nothing is recorded: the text comes from the apps themselves, and a screenshot is taken only for screens that draw their text as a picture.</string>
-    <string name="needs_overlay">Allow WordTap to draw over other apps first.</string>
+    <string name="needs_overlay">Allow Taplex to draw over other apps first.</string>
     <string name="no_text_found">Nothing readable on this screen.</string>
     <string name="no_entry">No dictionary entry.</string>
     <string name="no_pack">No %1$s dictionary installed, so nothing explains this word in %2$s.</string>
@@ -37,5 +37,5 @@
     <string name="delete">Delete</string>
     <string name="pack_failed">The %1$s dictionary could not be built.</string>
     <string name="how_title">How to use it</string>
-    <string name="how_body">Press the accessibility button, or the WordTap tile in quick settings, and the screen freezes with a box around every word. Tap one for its entry: what it means, in how many senses, how it is used, and a link to the full article. Tap anywhere else or press back to return. Long press the layer to come back here.\n\nNothing is recorded. The words are read from the apps on screen, and only where an app draws its text instead of reporting it does WordTap take a single screenshot to read.</string>
+    <string name="how_body">Press the accessibility button, or the Taplex tile in quick settings, and the screen freezes with a box around every word. Tap one for its entry: what it means, in how many senses, how it is used, and a link to the full article. Tap anywhere else or press back to return. Long press the layer to come back here.\n\nNothing is recorded. The words are read from the apps on screen, and only where an app draws its text instead of reporting it does Taplex take a single screenshot to read.</string>
 </resources>

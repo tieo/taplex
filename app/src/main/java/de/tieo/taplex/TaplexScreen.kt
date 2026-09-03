@@ -1,4 +1,4 @@
-package de.tieo.wordtap
+package de.tieo.taplex
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -31,7 +31,7 @@ import androidx.compose.ui.unit.dp
 import java.util.Locale
 
 /**
- * WordTap's screen, as a function of what is true rather than of what it can look up.
+ * Taplex's screen, as a function of what is true rather than of what it can look up.
  *
  * Everything it needs is in [UiState], so every state it can be in can be drawn without a
  * phone, which is what the book in `docs/model` is made of. A screen that can only be seen
@@ -63,7 +63,7 @@ data class ScreenActions(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WordTapScreen(state: UiState, actions: ScreenActions = ScreenActions()) {
+fun TaplexScreen(state: UiState, actions: ScreenActions = ScreenActions()) {
     Scaffold(
         topBar = { TopAppBar(title = { Text(stringResource(R.string.app_name)) }) }
     ) { padding ->

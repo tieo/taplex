@@ -1,4 +1,4 @@
-package de.tieo.wordtap
+package de.tieo.taplex
 
 import android.content.Context
 import android.graphics.Color
@@ -45,28 +45,28 @@ class BookRenders {
     @Test
     fun `main screen nothing set up`() {
         paparazzi.snapshot("main-nothing-set-up-phone") {
-            WordTapScreen(state(lookup = false, overlay = false, installed = emptyList()))
+            TaplexScreen(state(lookup = false, overlay = false, installed = emptyList()))
         }
     }
 
     @Test
     fun `main screen no dictionaries`() {
         paparazzi.snapshot("main-no-dictionaries-phone") {
-            WordTapScreen(state(installed = emptyList()))
+            TaplexScreen(state(installed = emptyList()))
         }
     }
 
     @Test
     fun `main screen ready`() {
         paparazzi.snapshot("main-ready-phone") {
-            WordTapScreen(state(installed = listOf(spanish, english)))
+            TaplexScreen(state(installed = listOf(spanish, english)))
         }
     }
 
     @Test
     fun `main screen building`() {
         paparazzi.snapshot("main-building-phone") {
-            WordTapScreen(
+            TaplexScreen(
                 state(
                     installed = emptyList(),
                     build = PackService.State.Working("es", 34_000_000, 91_000_000, 42_000)
@@ -78,7 +78,7 @@ class BookRenders {
     @Test
     fun `main screen build failed`() {
         paparazzi.snapshot("main-failed-phone") {
-            WordTapScreen(
+            TaplexScreen(
                 state(
                     installed = emptyList(),
                     build = PackService.State.Failed("ga", "Wiktionary has no Irish dictionary to build from.")
@@ -170,7 +170,7 @@ class BookRenders {
                             context = context,
                             frame = null,
                             sourceWidth = 1080,
-                            onWordTapped = {},
+                            onTaplexped = {},
                             onMissTapped = {},
                             onLongPressed = {}
                         ).apply {

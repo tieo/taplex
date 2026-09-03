@@ -1,4 +1,4 @@
-package de.tieo.wordtap
+package de.tieo.taplex
 
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
@@ -25,7 +25,7 @@ class ScreenCapturer(
 
     fun start() {
         virtualDisplay = projection.createVirtualDisplay(
-            "wordtap",
+            "taplex",
             width,
             height,
             densityDpi,

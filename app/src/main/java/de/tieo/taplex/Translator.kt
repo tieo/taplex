@@ -1,4 +1,4 @@
-package de.tieo.wordtap
+package de.tieo.taplex
 
 import android.util.Log
 import com.google.mlkit.common.model.DownloadConditions
@@ -82,7 +82,7 @@ class WordTranslator {
     }
 
     companion object {
-        private const val TAG = "WordTap"
+        private const val TAG = "Taplex"
     }
 
     fun close() {

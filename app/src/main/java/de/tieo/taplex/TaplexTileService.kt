@@ -1,4 +1,4 @@
-package de.tieo.wordtap
+package de.tieo.taplex
 
 import android.app.PendingIntent
 import android.content.Intent
@@ -10,7 +10,7 @@ import android.service.quicksettings.TileService
  * Starts a lookup from the quick settings shade, or arms the screen capture fallback where
  * word lookup is turned off.
  */
-class WordTapTileService : TileService() {
+class TaplexTileService : TileService() {
 
     override fun onStartListening() {
         super.onStartListening()
@@ -18,7 +18,7 @@ class WordTapTileService : TileService() {
     }
 
     override fun onClick() {
-        if (WordTapAccessibilityService.running != null) {
+        if (TaplexAccessibilityService.running != null) {
             collapseShadeAndLookUp()
             return
         }
@@ -70,7 +70,7 @@ class WordTapTileService : TileService() {
     private fun refresh() {
         qsTile?.apply {
             state = when {
-                WordTapAccessibilityService.running != null -> Tile.STATE_INACTIVE
+                TaplexAccessibilityService.running != null -> Tile.STATE_INACTIVE
                 CaptureService.running -> Tile.STATE_ACTIVE
                 else -> Tile.STATE_INACTIVE
             }

@@ -1,4 +1,4 @@
-package de.tieo.wordtap
+package de.tieo.taplex
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -26,7 +26,7 @@ class WordLayerView(
     context: Context,
     private val frame: Bitmap?,
     private val sourceWidth: Int,
-    private val onWordTapped: (Word) -> Unit,
+    private val onTaplexped: (Word) -> Unit,
     private val onMissTapped: () -> Unit,
     private val onLongPressed: () -> Unit
 ) : View(context) {
@@ -94,7 +94,7 @@ class WordLayerView(
         } else {
             highlighted = hit
             invalidate()
-            onWordTapped(hit)
+            onTaplexped(hit)
         }
         return true
     }

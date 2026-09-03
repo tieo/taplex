@@ -1,4 +1,4 @@
-package de.tieo.wordtap
+package de.tieo.taplex
 
 import android.graphics.Bitmap
 import android.graphics.Rect

@@ -1,4 +1,4 @@
-package de.tieo.wordtap
+package de.tieo.taplex
 
 import java.net.HttpURLConnection
 import java.net.URL

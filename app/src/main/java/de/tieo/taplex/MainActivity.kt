@@ -1,4 +1,4 @@
-package de.tieo.wordtap
+package de.tieo.taplex
 
 import android.Manifest
 import android.content.ComponentName
@@ -31,7 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 /**
  * The screen as the phone sees it: reads what is allowed and what is installed, and hands
- * that to [WordTapScreen], which knows nothing about where any of it came from.
+ * that to [TaplexScreen], which knows nothing about where any of it came from.
  */
 class MainActivity : ComponentActivity() {
 
@@ -79,7 +79,7 @@ private fun Main() {
         )
     }
 
-    WordTapScreen(
+    TaplexScreen(
         state = state,
         actions = ScreenActions(
             onEnableLookup = {
@@ -138,6 +138,6 @@ private fun lookupEnabled(context: Context): Boolean {
         context.contentResolver,
         Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
     ) ?: return false
-    val name = ComponentName(context, WordTapAccessibilityService::class.java)
+    val name = ComponentName(context, TaplexAccessibilityService::class.java)
     return enabled.split(':').any { ComponentName.unflattenFromString(it) == name }
 }

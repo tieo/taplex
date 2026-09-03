@@ -2,8 +2,8 @@
 <!--
     canRetrieveWindowContent: the words come from the node tree.
     canTakeScreenshot: the fallback for screens whose text is drawn, not reported.
-    flagRequestAccessibilityButton: the system button is the trigger, so WordTap needs no
-    bubble of its own and nothing of WordTap's can end up inside a capture.
+    flagRequestAccessibilityButton: the system button is the trigger, so Taplex needs no
+    bubble of its own and nothing of Taplex's can end up inside a capture.
 -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged"
@@ -13,4 +13,4 @@
     android:canTakeScreenshot="true"
     android:description="@string/a11y_description"
     android:notificationTimeout="100"
-    android:settingsActivity="de.tieo.wordtap.MainActivity" />
+    android:settingsActivity="de.tieo.taplex.MainActivity" />

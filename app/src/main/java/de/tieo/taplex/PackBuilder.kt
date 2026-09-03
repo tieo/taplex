@@ -1,4 +1,4 @@
-package de.tieo.wordtap
+package de.tieo.taplex
 
 import android.database.sqlite.SQLiteDatabase
 import android.util.JsonReader

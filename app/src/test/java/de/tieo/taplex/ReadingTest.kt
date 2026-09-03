@@ -1,4 +1,4 @@
-package de.tieo.wordtap
+package de.tieo.taplex
 
 import org.junit.Assert.assertEquals
 import org.junit.Test

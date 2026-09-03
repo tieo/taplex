@@ -1,11 +1,11 @@
-package de.tieo.wordtap
+package de.tieo.taplex
 
 import android.content.Context
 import java.util.Locale
 
 /** User settings. Source "auto" means the language is identified from the text on screen. */
 class Prefs(context: Context) {
-    private val sp = context.getSharedPreferences("wordtap", Context.MODE_PRIVATE)
+    private val sp = context.getSharedPreferences("taplex", Context.MODE_PRIVATE)
 
     var sourceLanguage: String
         get() = sp.getString(KEY_SOURCE, AUTO) ?: AUTO

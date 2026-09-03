@@ -64,13 +64,13 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Arm WordTap" />
+            android:text="Arm Taplex" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:paddingTop="24dp"
             android:textSize="14sp"
-            android:text="Word lookup reads the words straight from the apps on screen, so nothing is recorded and no capture runs in the background. Turn it on under Set up word lookup, then press the accessibility button whenever you want a word: WordTap puts a box around every word, and a tap on one shows its translation. Screens that draw their text as a picture, like games, fall back to a single screenshot taken at that moment.\n\nArming instead starts the older path: a screen capture session stays open while a bubble sits on top of every app, which is what the ongoing recording notification is. Use it only where word lookup cannot be turned on.\n\nRecognition and translation both run on the device. The first use of a language pair downloads a model of about 30 MB." />
+            android:text="Word lookup reads the words straight from the apps on screen, so nothing is recorded and no capture runs in the background. Turn it on under Set up word lookup, then press the accessibility button whenever you want a word: Taplex puts a box around every word, and a tap on one shows its translation. Screens that draw their text as a picture, like games, fall back to a single screenshot taken at that moment.\n\nArming instead starts the older path: a screen capture session stays open while a bubble sits on top of every app, which is what the ongoing recording notification is. Use it only where word lookup cannot be turned on.\n\nRecognition and translation both run on the device. The first use of a language pair downloads a model of about 30 MB." />
     </LinearLayout>
 </ScrollView>

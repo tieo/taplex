@@ -6,12 +6,12 @@ plugins {
 }
 
 android {
-    namespace = "de.tieo.wordtap"
+    namespace = "de.tieo.taplex"
     compileSdk = 34
     buildToolsVersion = "36.0.0"
 
     defaultConfig {
-        applicationId = "de.tieo.wordtap"
+        applicationId = "de.tieo.taplex"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

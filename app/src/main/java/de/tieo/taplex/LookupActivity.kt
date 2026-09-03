@@ -1,4 +1,4 @@
-package de.tieo.wordtap
+package de.tieo.taplex
 
 import android.app.Activity
 import android.content.Context
@@ -20,7 +20,7 @@ class LookupActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         finish()
-        val service = WordTapAccessibilityService.running
+        val service = TaplexAccessibilityService.running
         if (service == null) {
             startActivity(Intent(this, MainActivity::class.java))
             return

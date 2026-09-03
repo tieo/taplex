@@ -12,7 +12,7 @@ gradle recordPaparazziDebug --console=plain
 mkdir -p docs/model/img
 for file in app/src/test/snapshots/images/*.png; do
     name=$(basename "$file")
-    # de.tieo.wordtap_BookRenders_<test name>_<snapshot name>.png -> <snapshot name>.png
+    # de.tieo.taplex_BookRenders_<test name>_<snapshot name>.png -> <snapshot name>.png
     short=${name##*_}
     cp -f "$file" "docs/model/img/$short"
 done

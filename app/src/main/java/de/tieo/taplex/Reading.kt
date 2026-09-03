@@ -1,4 +1,4 @@
-package de.tieo.wordtap
+package de.tieo.taplex
 
 /**
  * Picking which entry a word on the page actually is.

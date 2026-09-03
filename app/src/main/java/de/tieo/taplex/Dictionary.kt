@@ -1,4 +1,4 @@
-package de.tieo.wordtap
+package de.tieo.taplex
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
@@ -153,7 +153,7 @@ class Dictionary private constructor(
                     glossLanguage,
                     wordLanguage
                 )
-            }.onFailure { Log.w("WordTap", "pack ${file.name} unreadable", it) }.getOrNull()
+            }.onFailure { Log.w("Taplex", "pack ${file.name} unreadable", it) }.getOrNull()
         }
     }
 }

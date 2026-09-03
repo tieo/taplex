@@ -1,4 +1,4 @@
-package de.tieo.wordtap
+package de.tieo.taplex
 
 import android.accessibilityservice.AccessibilityButtonController
 import android.accessibilityservice.AccessibilityService
@@ -24,7 +24,7 @@ import android.widget.Toast
  *
  * The MediaProjection path in [CaptureService] stays for when this service is off.
  */
-class WordTapAccessibilityService : AccessibilityService() {
+class TaplexAccessibilityService : AccessibilityService() {
 
     private lateinit var windowManager: WindowManager
     private var overlay: OverlayController? = null
@@ -72,7 +72,7 @@ class WordTapAccessibilityService : AccessibilityService() {
         // picture under them agree however the app behind rearranges itself afterwards.
         val reading = NodeWords.read(rootInActiveWindow, packageName, screenBounds())
         Log.d(
-            "WordTap",
+            "Taplex",
             "node words=" + reading.found.words.size +
                 " resolved=" + reading.resolvedCharacters +
                 " unresolved=" + reading.unresolvedCharacters
@@ -122,7 +122,7 @@ class WordTapAccessibilityService : AccessibilityService() {
                 }
 
                 override fun onFailure(errorCode: Int) {
-                    Log.w("WordTap", "screenshot failed, code=$errorCode")
+                    Log.w("Taplex", "screenshot failed, code=$errorCode")
                     onFrame(null)
                 }
             }
@@ -155,7 +155,7 @@ class WordTapAccessibilityService : AccessibilityService() {
          * the tile, the button callback and the service all live in one process.
          */
         @Volatile
-        var running: WordTapAccessibilityService? = null
+        var running: TaplexAccessibilityService? = null
             private set
     }
 }

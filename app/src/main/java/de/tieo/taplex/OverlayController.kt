@@ -1,4 +1,4 @@
-package de.tieo.wordtap
+package de.tieo.taplex
 
 import android.content.Context
 import android.content.Intent
@@ -80,7 +80,7 @@ class OverlayController(
             context,
             frame,
             sourceWidth,
-            onWordTapped = { word -> lookUp(word) },
+            onTaplexped = { word -> lookUp(word) },
             onMissTapped = { dismiss() },
             onLongPressed = { openSettings() }
         )
@@ -140,11 +140,11 @@ class OverlayController(
 
     private fun accept(found: Recognised) {
         screen.setWords(found.words)
-        Log.d("WordTap", "words=" + found.words.size + " prose=" + found.prose().take(120))
+        Log.d("Taplex", "words=" + found.words.size + " prose=" + found.prose().take(120))
         DebugState.lookup(found, source is Source.Reported)
         scope.launch {
             sourceLanguage = translator.identify(found.prose(), prefs.sourceLanguage)
-            Log.d("WordTap", "source=" + sourceLanguage + " target=" + prefs.targetLanguage)
+            Log.d("Taplex", "source=" + sourceLanguage + " target=" + prefs.targetLanguage)
         }
     }
 
@@ -223,7 +223,7 @@ class OverlayController(
     private fun languageName(tag: String): String =
         java.util.Locale(tag).displayLanguage.ifEmpty { tag }
 
-    /** Long press anywhere on the layer: WordTap's own screen, for languages and packs. */
+    /** Long press anywhere on the layer: Taplex's own screen, for languages and packs. */
     private fun openSettings() {
         val intent = Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

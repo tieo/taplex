@@ -1,4 +1,4 @@
-package de.tieo.wordtap
+package de.tieo.taplex
 
 import android.graphics.Rect
 import android.graphics.RectF
@@ -41,7 +41,7 @@ object NodeWords {
 
     /**
      * Every visible word in [root]'s tree. Nodes belonging to [skipPackage] are ignored, so
-     * WordTap's own overlay never becomes a tap target for itself.
+     * Taplex's own overlay never becomes a tap target for itself.
      */
     fun read(
         root: AccessibilityNodeInfo?,

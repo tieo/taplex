@@ -1,4 +1,4 @@
-package de.tieo.wordtap
+package de.tieo.taplex
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -25,7 +25,7 @@ import android.widget.Toast
 import kotlin.math.abs
 
 /**
- * Holds the screen capture session for as long as WordTap is armed and shows the bubble
+ * Holds the screen capture session for as long as Taplex is armed and shows the bubble
  * that starts a lookup.
  */
 class CaptureService : Service() {
@@ -224,8 +224,8 @@ class CaptureService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
-        const val ACTION_START = "de.tieo.wordtap.START"
-        const val ACTION_STOP = "de.tieo.wordtap.STOP"
+        const val ACTION_START = "de.tieo.taplex.START"
+        const val ACTION_STOP = "de.tieo.taplex.STOP"
         const val EXTRA_RESULT_CODE = "resultCode"
         const val EXTRA_RESULT_DATA = "resultData"
 

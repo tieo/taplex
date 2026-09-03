@@ -1,4 +1,4 @@
-# WordTap
+# Taplex
 
 Tap a single word anywhere on the screen and see what it means. No copying, no app
 switching, and no full screen translation: one word, its dictionary entry.
@@ -9,8 +9,8 @@ Word lookup is an accessibility service. Nothing is recorded and nothing runs be
 lookups: the words come from the accessibility node tree, which the apps on screen fill in
 themselves, and only a screen that reports no usable text costs a single screenshot.
 
-1. Press the system accessibility button, or the WordTap quick settings tile. There is no
-   bubble of WordTap's own, so nothing of WordTap's can end up inside a capture.
+1. Press the system accessibility button, or the Taplex quick settings tile. There is no
+   bubble of Taplex's own, so nothing of Taplex's can end up inside a capture.
 2. Every visible node's text is read, and each word's box comes from the rectangle the view
    reports for each of its characters
    (`AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY`). That is the exact
@@ -41,10 +41,10 @@ another, built from Wiktionary by `tools/build_pack.py`.
 curl -O https://kaikki.org/dictionary/Spanish/kaikki.org-dictionary-Spanish.jsonl
 uv run tools/build_pack.py --gloss-lang en --word-lang es \
     --input kaikki.org-dictionary-Spanish.jsonl --output en-es.db
-adb push en-es.db /sdcard/Android/data/de.tieo.wordtap/files/dictionaries/en-es.db
+adb push en-es.db /sdcard/Android/data/de.tieo.taplex/files/dictionaries/en-es.db
 ```
 
-The name is `<language of the explanations>-<language of the words>.db`. WordTap identifies
+The name is `<language of the explanations>-<language of the words>.db`. Taplex identifies
 the language on screen and opens the pack that explains it in the phone's language, so a
 phone set to English reading Spanish uses `en-es.db`. That pack holds 117,000 entries in
 88 MB. kaikki.org publishes one dump per Wiktionary edition and language, and the edition is

@@ -1,7 +1,7 @@
 <resources>
-    <style name="Theme.WordTap" parent="Theme.Material3.DayNight" />
+    <style name="Theme.Taplex" parent="Theme.Material3.DayNight" />
 
-    <style name="Theme.WordTap.Transparent" parent="Theme.Material3.DayNight">
+    <style name="Theme.Taplex.Transparent" parent="Theme.Material3.DayNight">
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowNoTitle">true</item>

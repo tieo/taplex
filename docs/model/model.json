@@ -142,8 +142,8 @@
       "relations": [],
       "renders": ["main-ready-phone.png"],
       "sources": [
-        "app/src/main/java/de/tieo/wordtap/WordTapScreen.kt",
-        "app/src/main/java/de/tieo/wordtap/MainActivity.kt"
+        "app/src/main/java/de/tieo/taplex/TaplexScreen.kt",
+        "app/src/main/java/de/tieo/taplex/MainActivity.kt"
       ],
       "statement": "The app's own screen: what is still to be allowed, which dictionaries are on the phone, and how to add one.",
       "states": ["Empty", "Failed", "No dictionaries", "Ready", "Building a dictionary"],
@@ -156,8 +156,8 @@
       "relations": [],
       "renders": ["layer-words-phone.png"],
       "sources": [
-        "app/src/main/java/de/tieo/wordtap/WordLayerView.kt",
-        "app/src/main/java/de/tieo/wordtap/OverlayController.kt"
+        "app/src/main/java/de/tieo/taplex/WordLayerView.kt",
+        "app/src/main/java/de/tieo/taplex/OverlayController.kt"
       ],
       "statement": "The layer over another app: the screen as it was, with every word a target.",
       "states": ["Words found"],
@@ -169,7 +169,7 @@
     {
       "relations": [],
       "renders": ["entry-found-phone.png"],
-      "sources": ["app/src/main/java/de/tieo/wordtap/EntryView.kt"],
+      "sources": ["app/src/main/java/de/tieo/taplex/EntryView.kt"],
       "statement": "What a tapped word turns into: its entry, or an honest account of why there is none.",
       "states": ["Entry found", "Empty", "Failed"],
       "status": "Built",

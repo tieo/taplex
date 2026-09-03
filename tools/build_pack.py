@@ -2,7 +2,7 @@
 # requires-python = ">=3.11"
 # dependencies = []
 # ///
-"""Turn a Wiktextract dump into a WordTap dictionary pack.
+"""Turn a Wiktextract dump into a Taplex dictionary pack.
 
 A pack answers one question offline: what does this word mean, explained in the
 language the phone is set to. It therefore belongs to a pair of languages, the

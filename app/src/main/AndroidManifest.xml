@@ -14,7 +14,7 @@
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.WordTap">
+        android:theme="@style/Theme.Taplex">
 
         <activity
             android:name=".MainActivity"
@@ -36,7 +36,7 @@
             android:exported="false"
             android:excludeFromRecents="true"
             android:noHistory="true"
-            android:theme="@style/Theme.WordTap.Transparent" />
+            android:theme="@style/Theme.Taplex.Transparent" />
 
         <!-- Transparent shim: MediaProjection consent can only be requested from an Activity. -->
         <activity
@@ -44,7 +44,7 @@
             android:exported="false"
             android:excludeFromRecents="true"
             android:noHistory="true"
-            android:theme="@style/Theme.WordTap.Transparent" />
+            android:theme="@style/Theme.Taplex.Transparent" />
 
         <service
             android:name=".CaptureService"
@@ -58,7 +58,7 @@
             screenshot only where an app draws its text instead of reporting it.
         -->
         <service
-            android:name=".WordTapAccessibilityService"
+            android:name=".TaplexAccessibilityService"
             android:exported="true"
             android:label="@string/a11y_label"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
@@ -78,7 +78,7 @@
             android:foregroundServiceType="dataSync" />
 
         <service
-            android:name=".WordTapTileService"
+            android:name=".TaplexTileService"
             android:exported="true"
             android:icon="@drawable/ic_tile"
             android:label="@string/tile_label"

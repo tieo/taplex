@@ -1,4 +1,4 @@
-package de.tieo.wordtap
+package de.tieo.taplex
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -131,7 +131,7 @@ class PackService : Service() {
             if (job?.isCancelled == true) {
                 state.value = State.Idle
             } else {
-                Log.w("WordTap", "pack build failed", e)
+                Log.w("Taplex", "pack build failed", e)
                 fail(wordLanguage, e.message ?: e.javaClass.simpleName)
             }
         } finally {
@@ -206,8 +206,8 @@ class PackService : Service() {
     }
 
     companion object {
-        private const val ACTION_BUILD = "de.tieo.wordtap.BUILD_PACK"
-        private const val ACTION_CANCEL = "de.tieo.wordtap.CANCEL_PACK"
+        private const val ACTION_BUILD = "de.tieo.taplex.BUILD_PACK"
+        private const val ACTION_CANCEL = "de.tieo.taplex.CANCEL_PACK"
         private const val EXTRA_WORD_LANGUAGE = "wordLanguage"
         private const val EXTRA_GLOSS_LANGUAGE = "glossLanguage"
         private const val CHANNEL_ID = "packs"
