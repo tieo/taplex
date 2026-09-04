@@ -140,14 +140,6 @@ private fun Main() {
                     scope.launch { answer = lookup.explain(term) }
                 }
             },
-            onOpenAppInfo = {
-                context.startActivity(
-                    Intent(
-                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        Uri.parse("package:" + context.packageName)
-                    )
-                )
-            },
             onAddTile = {
                 // The tile is the trigger that needs nothing else turned on. Asking for it
                 // here is the only way to add one without walking someone through editing

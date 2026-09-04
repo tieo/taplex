@@ -94,8 +94,7 @@ data class ScreenActions(
     val onHoverChanged: (Boolean) -> Unit = {},
     val onQueryChanged: (String) -> Unit = {},
     val onSearch: () -> Unit = {},
-    val onAddTile: (() -> Unit)? = null,
-    val onOpenAppInfo: () -> Unit = {}
+    val onAddTile: (() -> Unit)? = null
 )
 
 @Composable
@@ -173,12 +172,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.setup(
         else -> Unit
     }
 
-    // Android hides the switch for an app that was not installed from a store, and hides
-    // the reason with it, so the step that cannot be finished says where the block is.
-    if (!state.lookupEnabled) {
-        item { Blocked(actions.onOpenAppInfo) }
-    }
-
     itemsIndexed(steps) { index, step ->
         SetupStep(
             number = index + 1,
@@ -193,32 +186,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.setup(
                 else -> actions.onAddDictionary
             }
         )
-    }
-}
-
-/** Why the switch may not be there at all, and the one screen that unblocks it. */
-@Composable
-private fun Blocked(onOpenAppInfo: () -> Unit) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer
-        ),
-        shape = RoundedCornerShape(18.dp)
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(
-                stringResource(R.string.restricted_title),
-                style = MaterialTheme.typography.titleSmall
-            )
-            Text(
-                stringResource(R.string.restricted_why),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            TextButton(onClick = onOpenAppInfo, contentPadding = PaddingValues(0.dp)) {
-                Text(stringResource(R.string.open_app_info))
-            }
-        }
     }
 }
 

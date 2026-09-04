@@ -35,9 +35,6 @@
     <string name="tagline">Tap a word, read its entry</string>
     <string name="pair">%1$s, explained in %2$s</string>
     <string name="setup_lead">Three things and it works</string>
-    <string name="restricted_title">No switch on the accessibility screen?</string>
-    <string name="restricted_why">Android hides it for apps that were not installed from a store. Open app info, press the three dots at the top, and choose Allow restricted settings.</string>
-    <string name="open_app_info">Open app info</string>
     <string name="setup_pack">A dictionary</string>
     <string name="setup_pack_why">The language you are reading, built on the phone</string>
     <string name="look_up">Look up</string>
