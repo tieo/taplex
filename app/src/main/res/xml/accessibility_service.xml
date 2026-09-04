@@ -2,13 +2,17 @@
 <!--
     canRetrieveWindowContent: the words come from the node tree.
     canTakeScreenshot: the fallback for screens whose text is drawn, not reported.
-    flagRequestAccessibilityButton: the system button is the trigger, so Taplex needs no
-    bubble of its own and nothing of Taplex's can end up inside a capture.
+
+    The accessibility button is deliberately not requested. A service that asks for it is
+    presented as a shortcut rather than as a service: its page in Settings offers only
+    "shortcut, off" and no switch to turn the service on at all, which leaves it unusable
+    on a phone where that shortcut is not set up. The quick settings tile is the trigger
+    instead, and anyone who wants the button can still bind it from the same page.
 -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagRequestAccessibilityButton|flagRetrieveInteractiveWindows"
+    android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows"
     android:canRetrieveWindowContent="true"
     android:canTakeScreenshot="true"
     android:description="@string/a11y_description"
