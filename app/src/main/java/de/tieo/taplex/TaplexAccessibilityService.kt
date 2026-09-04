@@ -46,6 +46,10 @@ class TaplexAccessibilityService : AccessibilityService() {
         accessibilityButtonController.registerAccessibilityButtonCallback(buttonCallback)
         debug.register(this)
         running = this
+        // The app someone is in when they switch this on never changes window, so waiting
+        // for a window event would leave the circle absent from exactly the conversation
+        // they turned it on for.
+        follow()
     }
 
     /**
@@ -59,12 +63,20 @@ class TaplexAccessibilityService : AccessibilityService() {
      */
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        follow()
+    }
+
+    /** Puts the circle up if the app it belongs to is in front, and takes it away if not. */
+    private fun follow() {
         val prefs = Prefs(this)
         if (!prefs.hoverEnabled || !Settings.canDrawOverlays(this)) {
             hover?.disarm()
             return
         }
         val front = frontApp()
+        if (BuildConfig.DEBUG) {
+            Log.d("Taplex", "front=" + front + " wanted=" + prefs.hoverPackage)
+        }
         if (front == null || front == packageName) return
         if (front == prefs.hoverPackage) hoverController().arm() else hover?.disarm()
     }
