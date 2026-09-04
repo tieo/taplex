@@ -1,3 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The mark: the circle Taplex puts over a word, and the line of text under it. Drawn as a
+    ring rather than a disc for the same reason the real one is see-through, and kept to
+    three shapes so it still reads as a quick settings tile at 24dp.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
@@ -6,5 +12,15 @@
     android:tint="#FFFFFF">
     <path
         android:fillColor="#FF000000"
-        android:pathData="M12,2L4,7v10l8,5 8,-5V7L12,2zM12,4.3L17.5,7.8 12,11.3 6.5,7.8 12,4.3zM6,9.6l5,3.1v5.9l-5,-3.1V9.6zM13,18.6v-5.9l5,-3.1v5.9L13,18.6z" />
+        android:fillType="evenOdd"
+        android:pathData="M9,3.2A5,5 0 1,0 9.001,3.2 Z M9,5A3.2,3.2 0 1,1 8.999,5 Z" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M9,7.2A1,1 0 1,0 9.001,7.2 Z" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M4.6,16.4 H19.4 A1.2,1.2 0 0,1 19.4,18.8 H4.6 A1.2,1.2 0 0,1 4.6,16.4 Z" />
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M4.6,20 H12.8 A1.2,1.2 0 0,1 12.8,22.4 H4.6 A1.2,1.2 0 0,1 4.6,20 Z" />
 </vector>
