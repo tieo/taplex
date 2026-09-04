@@ -11,6 +11,8 @@ import android.view.HapticFeedbackConstants
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.MotionEvent
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
@@ -38,7 +40,7 @@ import kotlinx.coroutines.withContext
 class HoverController(
     private val context: Context,
     private val windowManager: WindowManager,
-    private val readWords: () -> Recognised
+    private val readWords: suspend () -> Recognised
 ) {
 
     private val lookup = Lookup(context)
@@ -50,6 +52,9 @@ class HoverController(
     private var highlight: HoverHighlightView? = null
     private var card: EntryView? = null
     private var input: View? = null
+
+    /** Held so it can be taken off again: back closes the field, and only while it is up. */
+    private var back: OnBackInvokedCallback? = null
 
     private var words: List<Word> = emptyList()
     private var hovered: Word? = null
@@ -68,6 +73,8 @@ class HoverController(
 
     fun arm() {
         if (bubble != null) return
+        // Read once as the circle appears, so the first drag has something to answer with.
+        refresh()
         val view = BubbleView(context)
         val size = (BUBBLE_DP * density).toInt()
         if (bubbleX < 0) {
@@ -102,22 +109,38 @@ class HoverController(
      * lines while the bubble sits there, and the words wanted are the ones on screen now.
      */
     private fun beginDrag() {
+        // Whatever was answered last is gone before the screen is read, so a card of ours
+        // is never in the picture that gets recognised.
+        card?.let { windowManager.removeView(it) }
+        card = null
         showLayer()
-        words = emptyList()
+        // What was read last is kept until the new reading lands. A screen whose text has
+        // to be recognised takes about a second, and a circle that answers nothing for a
+        // second reads as a circle that does not work; the words rarely move under it.
         reading?.cancel()
         // Walking the node tree takes a few hundred milliseconds on a screenful of text,
         // which as a blocking call would be the first frames of the drag dropped. The drag
         // starts at once and the words are answered for as soon as they arrive.
+        refresh()
+    }
+
+    /** Reads the screen, and answers again for wherever the circle is now pointing. */
+    private fun refresh() {
         reading = scope.launch {
             val started = System.currentTimeMillis()
-            val found = withContext(Dispatchers.Default) { readWords() }
+            val found = readWords()
             words = found.words
             Log.d(
                 "Taplex",
                 "hover read words=" + words.size +
                     " in " + (System.currentTimeMillis() - started) + "ms"
             )
-            aim?.let { hoverAt(it.x, it.y) }
+            // The finger has moved on while this was being read; what it is over now is
+            // answered with the words that just arrived.
+            aim?.let { point ->
+                hovered = null
+                hoverAt(point.x, point.y)
+            }
             lookup.identify(found.prose())
         }
     }
@@ -316,6 +339,9 @@ class HoverController(
     private fun openInput() {
         if (input != null) return
         val view = object : SayInputView(context) {
+            // Before the back callback existed, back arrived as a key event; from Android
+            // 13 it does not, and a window that answers only one of the two cannot be
+            // closed on the other.
             override fun dispatchKeyEvent(event: KeyEvent): Boolean {
                 if (event.keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
                     closeInput()
@@ -334,6 +360,14 @@ class HoverController(
         windowManager.addView(view, inputParams())
         input = view
         view.field.requestFocus()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val callback = OnBackInvokedCallback { closeInput() }
+            view.findOnBackInvokedDispatcher()?.registerOnBackInvokedCallback(
+                OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                callback
+            )
+            back = callback
+        }
     }
 
     private fun learning(): String = lookup.learningLanguage() ?: lookup.glossLanguage
@@ -351,6 +385,10 @@ class HoverController(
     }
 
     private fun closeInput() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            back?.let { input?.findOnBackInvokedDispatcher()?.unregisterOnBackInvokedCallback(it) }
+        }
+        back = null
         input?.let { windowManager.removeView(it) }
         input = null
     }
@@ -408,7 +446,12 @@ class HoverController(
                     active = false
                     // A press that went nowhere puts the circle away rather than leaving a
                     // card sitting over the conversation.
-                    if (!dragging && !longPressed) hideLayer() else if (dragging) park()
+                    if (!dragging && !longPressed) {
+                        closeInput()
+                        hideLayer()
+                    } else if (dragging) {
+                        park()
+                    }
                 }
             }
             return true

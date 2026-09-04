@@ -11,6 +11,8 @@ import android.util.Log
 import android.view.Display
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import kotlin.coroutines.resume
+import kotlinx.coroutines.suspendCancellableCoroutine
 import android.view.accessibility.AccessibilityWindowInfo
 import android.widget.Toast
 
@@ -86,8 +88,38 @@ class TaplexAccessibilityService : AccessibilityService() {
         hover ?: HoverController(
             context = this,
             windowManager = windowManager,
-            readWords = { NodeWords.read(rootInActiveWindow, packageName, screenBounds()).found }
+            readWords = { wordsOnScreen() }
         ).also { hover = it }
+
+    /**
+     * What is readable on screen right now, by the same rule the modal layer uses: the
+     * words the apps reported themselves where those carry the screen, and a recognised
+     * screenshot where they do not.
+     *
+     * A view reports where each of its characters sits only if it implements the request.
+     * A browser answers with whole paragraphs and no character positions, which is a
+     * screenful of text and no word anyone can point at, so that screen is read as a
+     * picture instead.
+     */
+    private suspend fun wordsOnScreen(): Recognised {
+        val reading = NodeWords.read(rootInActiveWindow, packageName, screenBounds())
+        val reported = reading.found.words.size >= MIN_REPORTED_WORDS &&
+            reading.resolvedCharacters >= reading.unresolvedCharacters
+        if (reported) return reading.found
+        val frame = frame() ?: return reading.found
+        val recognised = runCatching { Ocr.run(frame) }.getOrNull()
+        frame.recycle()
+        return recognised ?: reading.found
+    }
+
+    /** The screen as a picture, or null when the system will not hand one over. */
+    private suspend fun frame(): Bitmap? = suspendCancellableCoroutine { waiting ->
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            waiting.resume(null)
+            return@suspendCancellableCoroutine
+        }
+        screenshot { waiting.resume(it) }
+    }
 
     override fun onInterrupt() = Unit
 
