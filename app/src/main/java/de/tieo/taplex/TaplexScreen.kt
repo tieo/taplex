@@ -151,11 +151,11 @@ private fun androidx.compose.foundation.lazy.LazyListScope.setup(
     actions: ScreenActions
 ) {
     val steps = listOf(
-        Triple(R.string.setup_lookup, R.string.setup_lookup_why, state.lookupEnabled),
-        Triple(R.string.setup_overlay, R.string.setup_overlay_why, state.canDrawOverlay),
-        Triple(R.string.setup_pack, R.string.setup_pack_why, state.installed.isNotEmpty())
+        Step(R.string.setup_lookup, R.string.setup_lookup_why, state.lookupEnabled, R.string.turn_on),
+        Step(R.string.setup_overlay, R.string.setup_overlay_why, state.canDrawOverlay, R.string.turn_on),
+        Step(R.string.setup_pack, R.string.setup_pack_why, state.installed.isNotEmpty(), R.string.add)
     )
-    val current = steps.indexOfFirst { !it.third }
+    val current = steps.indexOfFirst { !it.done }
 
     item {
         Text(
@@ -172,12 +172,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.setup(
     }
 
     itemsIndexed(steps) { index, step ->
-        val (title, why, done) = step
         SetupStep(
             number = index + 1,
-            title = stringResource(title),
-            detail = stringResource(why),
-            done = done,
+            title = stringResource(step.title),
+            detail = stringResource(step.why),
+            done = step.done,
+            act = stringResource(step.act),
             live = index == current && state.build !is PackService.State.Working,
             onAct = when (index) {
                 0 -> actions.onEnableLookup
@@ -187,6 +187,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.setup(
         )
     }
 }
+
+/** One thing still to do before the app can answer anything. */
+private data class Step(val title: Int, val why: Int, val done: Boolean, val act: Int)
 
 private fun <T> androidx.compose.foundation.lazy.LazyListScope.itemsIndexed(
     values: List<T>,
@@ -201,6 +204,7 @@ private fun SetupStep(
     title: String,
     detail: String,
     done: Boolean,
+    act: String,
     live: Boolean,
     onAct: () -> Unit
 ) {
@@ -270,9 +274,7 @@ private fun SetupStep(
             }
             if (live) {
                 Spacer(Modifier.width(12.dp))
-                Button(onClick = onAct, shape = RoundedCornerShape(12.dp)) {
-                    Text(stringResource(R.string.turn_on))
-                }
+                Button(onClick = onAct, shape = RoundedCornerShape(12.dp)) { Text(act) }
             }
         }
     }
@@ -670,9 +672,9 @@ private fun HoverCard(state: UiState, actions: ScreenActions) {
 @Composable
 private fun Steps() {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Step(1, stringResource(R.string.step_arm))
-        Step(2, stringResource(R.string.step_tap))
-        Step(3, stringResource(R.string.step_say))
+        HowStep(1, stringResource(R.string.step_arm))
+        HowStep(2, stringResource(R.string.step_tap))
+        HowStep(3, stringResource(R.string.step_say))
         Text(
             stringResource(R.string.records_nothing),
             style = MaterialTheme.typography.bodySmall,
@@ -683,7 +685,7 @@ private fun Steps() {
 }
 
 @Composable
-private fun Step(number: Int, text: String) {
+private fun HowStep(number: Int, text: String) {
     Row(Modifier.padding(start = 2.dp), verticalAlignment = Alignment.Top) {
         Text(
             "$number",

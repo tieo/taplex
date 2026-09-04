@@ -33,8 +33,8 @@ class EntryView(context: Context) : ScrollView(context) {
 
     init {
         setBackgroundResource(R.drawable.popup_bg)
-        val pad = dp(14)
-        setPadding(pad, dp(12), pad, dp(12))
+        val pad = dp(16)
+        setPadding(pad, dp(14), pad, dp(14))
         isScrollbarFadingEnabled = true
         addView(column, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
     }
@@ -122,12 +122,13 @@ class EntryView(context: Context) : ScrollView(context) {
             text.setSpan(ForegroundColorSpan(MUTED), start, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             text.setSpan(RelativeSizeSpan(0.8f), start, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
-        return line(text, size = 18f)
+        return line(text, size = 19f)
     }
 
     private fun senseLine(number: Int, sense: Sense): TextView {
         val text = SpannableStringBuilder("$number  ")
-        text.setSpan(ForegroundColorSpan(MUTED), 0, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        text.setSpan(ForegroundColorSpan(LINK), 0, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        text.setSpan(RelativeSizeSpan(0.85f), 0, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         if (sense.tags.isNotEmpty()) {
             val start = text.length
             text.append(sense.tags.joinToString(", ")).append("  ")
@@ -135,23 +136,23 @@ class EntryView(context: Context) : ScrollView(context) {
             text.setSpan(RelativeSizeSpan(0.85f), start, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
         text.append(sense.gloss)
-        return line(text, size = 15f).apply { setPadding(0, dp(6), 0, 0) }
+        return line(text, size = 15f).apply { setPadding(0, dp(7), 0, 0) }
     }
 
     private fun exampleLine(example: String): TextView =
         line(example, size = 13f, color = MUTED).apply {
             setTypeface(typeface, Typeface.ITALIC)
-            setPadding(dp(16), dp(2), 0, 0)
+            setPadding(dp(18), dp(3), 0, 0)
         }
 
     private fun divider(): View =
         View(context).apply {
-            setBackgroundColor(Color.argb(60, 255, 255, 255))
+            setBackgroundColor(RULE)
             layoutParams = LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, dp(1))
                 .apply { topMargin = dp(12) }
         }
 
-    private fun line(text: CharSequence, size: Float, color: Int = Color.WHITE): TextView =
+    private fun line(text: CharSequence, size: Float, color: Int = TEXT): TextView =
         TextView(context).apply {
             setText(text)
             setTextColor(color)
@@ -163,9 +164,15 @@ class EntryView(context: Context) : ScrollView(context) {
         (value * context.resources.displayMetrics.density).toInt()
 
     companion object {
+        /** The same colours the app's own screen uses, so the two look like one app. */
+        val TEXT = Color.rgb(231, 236, 243)
+
         /** The colour of everything that is not the answer itself. */
-        val MUTED = Color.argb(170, 255, 255, 255)
-        val TAG = Color.rgb(150, 200, 255)
-        val LINK = Color.rgb(130, 180, 255)
+        val MUTED = Color.rgb(139, 151, 168)
+
+        /** What a sense is marked as: the marker colour, as on the screen. */
+        val TAG = Color.rgb(255, 197, 61)
+        val LINK = Color.rgb(76, 154, 255)
+        val RULE = Color.rgb(34, 43, 56)
     }
 }

@@ -1,5 +1,7 @@
+<!-- The card the overlay puts over a word: near-black so it reads over anything, with a
+     hairline edge so it stays a card rather than a hole in the screen. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="#F2202124" />
-    <corners android:radius="12dp" />
-    <stroke android:width="1dp" android:color="#33FFFFFF" />
+    <solid android:color="#F50D1219" />
+    <corners android:radius="18dp" />
+    <stroke android:width="1dp" android:color="#2A3442" />
 </shape>

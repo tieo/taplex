@@ -1,7 +1,18 @@
 <resources>
-    <style name="Theme.Taplex" parent="Theme.Material3.DayNight" />
+    <!--
+        The window itself, before Compose draws anything: dark, because the app is dark
+        whatever the phone is set to, and a white flash between launching and drawing is the
+        one frame everybody sees.
+    -->
+    <style name="Theme.Taplex" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:windowBackground">@color/ground</item>
+        <item name="android:statusBarColor">@color/ground</item>
+        <item name="android:navigationBarColor">@color/ground</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
 
-    <style name="Theme.Taplex.Transparent" parent="Theme.Material3.DayNight">
+    <style name="Theme.Taplex.Transparent" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowNoTitle">true</item>

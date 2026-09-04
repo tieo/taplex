@@ -1,3 +1,5 @@
 <resources>
     <color name="ic_launcher_background">#1F6FEB</color>
+    <!-- The app's own dark, shared by the window and the Compose theme. -->
+    <color name="ground">#0B0F16</color>
 </resources>
