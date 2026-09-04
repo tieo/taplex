@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/ic_launcher_background" />
+    <!-- No tile of its own: the mark stands on whatever the home screen is. -->
+    <background android:drawable="@android:color/transparent" />
     <foreground android:drawable="@drawable/ic_launcher_foreground" />
-    <!-- Android 13 and later tint the mark to the wallpaper's colours when the user asks
-         for themed icons; without this the icon stays the odd one out on that screen. -->
-    <monochrome android:drawable="@drawable/ic_launcher_foreground" />
+    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />
 </adaptive-icon>

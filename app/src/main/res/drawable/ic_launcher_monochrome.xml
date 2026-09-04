@@ -1,17 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The mark as a quick settings tile, which the system tints: one silhouette, holes for
-     the word and its underline. -->
+<!--
+    The same mark as one silhouette, for the themed icons a launcher tints itself: the word
+    and its underline have to be holes in the lens here, since a tint would otherwise paint
+    them the same colour as the glass and leave a plain disc.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp"
-    android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108"
     android:tint="#FFFFFF">
     <group
-        android:scaleX="0.5"
-        android:scaleY="0.5"
-        android:translateX="-0.25"
-        android:translateY="-0.25">
+        android:scaleX="1.636"
+        android:scaleY="1.636"
+        android:translateX="13.9"
+        android:translateY="15.6">
         <path
             android:strokeColor="#FF000000"
             android:strokeWidth="9"
