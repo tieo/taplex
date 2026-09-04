@@ -1,35 +1,50 @@
 package de.tieo.taplex
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import java.util.Locale
 
 /**
@@ -38,6 +53,10 @@ import java.util.Locale
  * Everything it needs is in [UiState], so every state it can be in can be drawn without a
  * phone, which is what the book in `docs/model` is made of. A screen that can only be seen
  * by running the app is a screen whose empty and failed states nobody ever looks at.
+ *
+ * There are two screens here, not one. Until the app can answer anything it shows only what
+ * is still to be done, one step at a time; once it can, the setup is gone for good and what
+ * is left is a place to look a word up and the few things worth changing.
  */
 data class UiState(
     val lookupEnabled: Boolean,
@@ -45,14 +64,24 @@ data class UiState(
     val glossLanguage: String,
     val installed: List<InstalledPack>,
     val build: PackService.State,
-    val hoverEnabled: Boolean = false
-)
+    val hoverEnabled: Boolean = false,
+    val query: String = "",
+    val answer: Explanation? = null,
+    val searching: Boolean = false
+) {
+    /** Nothing is missing: a lookup would work right now. */
+    val ready: Boolean get() = lookupEnabled && canDrawOverlay && installed.isNotEmpty()
 
-/** A dictionary on the phone: which words, explained in what, and how much room it takes. */
+    /** The language being learned, which is the words language of the pack that is in. */
+    val learning: String? get() = installed.firstOrNull()?.wordLanguage
+}
+
+/** A dictionary on the phone: which words, explained in what, how big, how many entries. */
 data class InstalledPack(
     val wordLanguage: String,
     val glossLanguage: String,
-    val bytes: Long
+    val bytes: Long,
+    val entries: Int = 0
 )
 
 /** What the screen can be asked to do. */
@@ -62,112 +91,359 @@ data class ScreenActions(
     val onAddDictionary: () -> Unit = {},
     val onDeleteDictionary: (InstalledPack) -> Unit = {},
     val onCancelBuild: () -> Unit = {},
-    val onHoverChanged: (Boolean) -> Unit = {}
+    val onHoverChanged: (Boolean) -> Unit = {},
+    val onQueryChanged: (String) -> Unit = {},
+    val onSearch: () -> Unit = {}
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaplexScreen(state: UiState, actions: ScreenActions = ScreenActions()) {
-    Scaffold(
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.app_name)) }) }
-    ) { padding ->
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item { SetupCard(state, actions) }
+            item { Header(state) }
+            if (state.ready) home(state, actions) else setup(state, actions)
+            item { Spacer(Modifier.height(24.dp)) }
+        }
+    }
+}
 
-            item {
-                Text(
-                    stringResource(R.string.dictionaries_title),
-                    style = MaterialTheme.typography.titleMedium
+/** The name, and under it the pair being read, which is the app's whole configuration. */
+@Composable
+private fun Header(state: UiState) {
+    Column(Modifier.padding(top = 28.dp, bottom = 4.dp)) {
+        Text(
+            stringResource(R.string.app_name),
+            style = MaterialTheme.typography.headlineMedium
+        )
+        val learning = state.learning
+        Text(
+            if (learning == null) {
+                stringResource(R.string.tagline)
+            } else {
+                stringResource(
+                    R.string.pair,
+                    languageName(learning),
+                    languageName(state.glossLanguage)
                 )
-            }
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
 
-            when (val build = state.build) {
-                is PackService.State.Working -> item { BuildingCard(build, actions.onCancelBuild) }
-                is PackService.State.Failed -> item { FailedCard(build) }
-                else -> Unit
-            }
+// ── before it works ────────────────────────────────────────────────────────────────────
 
-            if (state.installed.isEmpty() && state.build !is PackService.State.Working) {
-                item {
+/**
+ * What is still to be done, as three steps with one action live at a time.
+ *
+ * Everything at once is what the screen used to be, and it read as a settings page for an
+ * app that had not started yet. A step that is done is a tick and nothing else.
+ */
+private fun androidx.compose.foundation.lazy.LazyListScope.setup(
+    state: UiState,
+    actions: ScreenActions
+) {
+    val steps = listOf(
+        Triple(R.string.setup_lookup, R.string.setup_lookup_why, state.lookupEnabled),
+        Triple(R.string.setup_overlay, R.string.setup_overlay_why, state.canDrawOverlay),
+        Triple(R.string.setup_pack, R.string.setup_pack_why, state.installed.isNotEmpty())
+    )
+    val current = steps.indexOfFirst { !it.third }
+
+    item {
+        Text(
+            stringResource(R.string.setup_lead),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+        )
+    }
+
+    when (val build = state.build) {
+        is PackService.State.Working -> item { BuildingCard(build, actions.onCancelBuild) }
+        is PackService.State.Failed -> item { FailedCard(build) }
+        else -> Unit
+    }
+
+    itemsIndexed(steps) { index, step ->
+        val (title, why, done) = step
+        SetupStep(
+            number = index + 1,
+            title = stringResource(title),
+            detail = stringResource(why),
+            done = done,
+            live = index == current && state.build !is PackService.State.Working,
+            onAct = when (index) {
+                0 -> actions.onEnableLookup
+                1 -> actions.onAllowOverlay
+                else -> actions.onAddDictionary
+            }
+        )
+    }
+}
+
+private fun <T> androidx.compose.foundation.lazy.LazyListScope.itemsIndexed(
+    values: List<T>,
+    content: @Composable (Int, T) -> Unit
+) {
+    values.forEachIndexed { index, value -> item { content(index, value) } }
+}
+
+@Composable
+private fun SetupStep(
+    number: Int,
+    title: String,
+    detail: String,
+    done: Boolean,
+    live: Boolean,
+    onAct: () -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (live) {
+                MaterialTheme.colorScheme.surfaceVariant
+            } else {
+                Color.Transparent
+            }
+        ),
+        border = if (live) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier
+                    .size(26.dp)
+                    .background(
+                        when {
+                            done -> MaterialTheme.colorScheme.primary
+                            live -> MaterialTheme.colorScheme.primaryContainer
+                            else -> MaterialTheme.colorScheme.surfaceVariant
+                        },
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (done) {
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                } else {
                     Text(
-                        stringResource(R.string.no_dictionaries),
-                        style = MaterialTheme.typography.bodyMedium
+                        number.toString(),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
-
-            items(state.installed) { pack ->
-                InstalledCard(pack) { actions.onDeleteDictionary(pack) }
-            }
-
-            item {
-                Button(
-                    onClick = actions.onAddDictionary,
-                    enabled = state.build !is PackService.State.Working
-                ) {
-                    Text(stringResource(R.string.add_dictionary))
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = if (done) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    }
+                )
+                if (!done) {
+                    Text(
+                        detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
-
-            item {
-                Text(
-                    stringResource(R.string.explained_in, languageName(state.glossLanguage)),
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-
-            item { HoverCard(state, actions) }
-
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        stringResource(R.string.how_title),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        stringResource(R.string.how_body),
-                        style = MaterialTheme.typography.bodySmall
-                    )
+            if (live) {
+                Spacer(Modifier.width(12.dp))
+                Button(onClick = onAct, shape = RoundedCornerShape(12.dp)) {
+                    Text(stringResource(R.string.turn_on))
                 }
             }
         }
     }
 }
 
-/**
- * The second way in, for a conversation rather than a page: a circle that follows the
- * finger over one app and answers whatever it passes, without a modal layer.
- */
-@Composable
-private fun HoverCard(state: UiState, actions: ScreenActions) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            stringResource(R.string.hover_title),
-            style = MaterialTheme.typography.titleMedium
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                stringResource(R.string.hover_toggle),
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f)
-            )
-            Switch(checked = state.hoverEnabled, onCheckedChange = actions.onHoverChanged)
-        }
-        Text(
-            stringResource(R.string.hover_explained),
-            style = MaterialTheme.typography.bodySmall
-        )
+// ── once it works ──────────────────────────────────────────────────────────────────────
+
+private fun androidx.compose.foundation.lazy.LazyListScope.home(
+    state: UiState,
+    actions: ScreenActions
+) {
+    item { SearchField(state, actions) }
+    state.answer?.let { answer -> item { AnswerCard(answer) } }
+
+    item { SectionHeader(stringResource(R.string.hover_title)) }
+    item { HoverCard(state, actions) }
+
+    item { SectionHeader(stringResource(R.string.dictionaries_title)) }
+    when (val build = state.build) {
+        is PackService.State.Working -> item { BuildingCard(build, actions.onCancelBuild) }
+        is PackService.State.Failed -> item { FailedCard(build) }
+        else -> Unit
     }
+    items(state.installed) { pack ->
+        InstalledCard(pack) { actions.onDeleteDictionary(pack) }
+    }
+    item {
+        TextButton(
+            onClick = actions.onAddDictionary,
+            enabled = state.build !is PackService.State.Working
+        ) {
+            Text(stringResource(R.string.add_dictionary))
+        }
+    }
+
+    item { SectionHeader(stringResource(R.string.how_title)) }
+    item { Steps() }
+}
+
+/** A word can be looked up here too, without arming anything over another app. */
+@Composable
+private fun SearchField(state: UiState, actions: ScreenActions) {
+    OutlinedTextField(
+        value = state.query,
+        onValueChange = actions.onQueryChanged,
+        singleLine = true,
+        shape = RoundedCornerShape(16.dp),
+        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+        trailingIcon = {
+            if (state.query.isNotBlank()) {
+                TextButton(onClick = actions.onSearch) {
+                    Text(stringResource(R.string.look_up))
+                }
+            }
+        },
+        placeholder = {
+            Text(
+                stringResource(
+                    R.string.look_up_hint,
+                    languageName(state.learning ?: state.glossLanguage)
+                )
+            )
+        },
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+            unfocusedIndicatorColor = Color.Transparent
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+    )
+}
+
+/** The entry, as the overlay would show it, in the app's own colours. */
+@Composable
+private fun AnswerCard(answer: Explanation) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (answer.entries.isEmpty()) {
+                Text(answer.term, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    answer.note ?: answer.translation
+                        ?: stringResource(R.string.no_entry),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            answer.entries.forEach { entry -> EntryBlock(entry) }
+        }
+    }
+}
+
+@Composable
+private fun EntryBlock(entry: Entry) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(entry.lemma, style = MaterialTheme.typography.titleMedium)
+            entry.pos?.let {
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 2.dp)
+                )
+            }
+            entry.ipa?.let {
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 2.dp)
+                )
+            }
+        }
+        entry.label?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        entry.senses.forEachIndexed { index, sense ->
+            Row(verticalAlignment = Alignment.Top) {
+                Text(
+                    "${index + 1}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.width(18.dp)
+                )
+                Column {
+                    Row {
+                        if (sense.tags.isNotEmpty()) {
+                            Text(
+                                sense.tags.joinToString(", "),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                            Spacer(Modifier.width(6.dp))
+                        }
+                        Text(sense.gloss, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    sense.examples.firstOrNull()?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontStyle = FontStyle.Italic,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionHeader(title: String) {
+    Text(
+        title,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(start = 2.dp, top = 12.dp)
+    )
 }
 
 /**
@@ -190,134 +466,248 @@ fun LanguagePicker(
             value = query,
             onValueChange = onQueryChange,
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text(stringResource(R.string.search_language)) }
+            shape = RoundedCornerShape(16.dp),
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            placeholder = { Text(stringResource(R.string.search_language)) },
+            modifier = Modifier.fillMaxWidth()
         )
         if (shown.isEmpty()) {
             Text(
                 text = stringResource(R.string.no_language_matches),
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 12.dp)
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 16.dp, start = 4.dp)
             )
         }
-        LazyColumn {
+        LazyColumn(
+            modifier = Modifier.padding(top = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
             items(shown) { language ->
-                TextButton(onClick = { onPick(language) }) { Text(language.name) }
+                TextButton(
+                    onClick = { onPick(language) },
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
+                ) {
+                    Text(
+                        language.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
     }
 }
 
-@Composable
-private fun SetupCard(state: UiState, actions: ScreenActions) {
-    Card {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                stringResource(R.string.setup_title),
-                style = MaterialTheme.typography.titleMedium
-            )
-            PermissionRow(
-                label = stringResource(R.string.setup_lookup),
-                granted = state.lookupEnabled,
-                onFix = actions.onEnableLookup
-            )
-            PermissionRow(
-                label = stringResource(R.string.setup_overlay),
-                granted = state.canDrawOverlay,
-                onFix = actions.onAllowOverlay
-            )
-        }
-    }
-}
-
-@Composable
-private fun PermissionRow(label: String, granted: Boolean, onFix: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-        if (granted) {
-            Icon(Icons.Default.Check, contentDescription = stringResource(R.string.granted))
-        } else {
-            OutlinedButton(onClick = onFix) { Text(stringResource(R.string.turn_on)) }
-        }
-    }
-}
-
+/** A build in flight: what it is doing, how far it has come, and how to stop it. */
 @Composable
 private fun BuildingCard(working: PackService.State.Working, onCancel: () -> Unit) {
-    Card {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                stringResource(R.string.pack_building, languageName(working.wordLanguage)),
-                style = MaterialTheme.typography.titleSmall
-            )
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        languageName(working.wordLanguage),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        stringResource(
+                            R.string.pack_progress,
+                            megabytes(working.bytesRead),
+                            megabytes(working.totalBytes),
+                            thousands(working.entries)
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Text(
+                    percent(working),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
             if (working.totalBytes > 0) {
                 LinearProgressIndicator(
                     progress = { working.bytesRead.toFloat() / working.totalBytes },
-                    modifier = Modifier.fillMaxWidth()
+                    trackColor = MaterialTheme.colorScheme.outline,
+                    strokeCap = StrokeCap.Round,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
                 )
             } else {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                LinearProgressIndicator(
+                    trackColor = MaterialTheme.colorScheme.outline,
+                    strokeCap = StrokeCap.Round,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                )
             }
-            Text(
-                stringResource(
-                    R.string.pack_progress,
-                    megabytes(working.bytesRead),
-                    megabytes(working.totalBytes),
-                    working.entries
-                ),
-                style = MaterialTheme.typography.bodySmall
-            )
-            TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) }
+            TextButton(onClick = onCancel, contentPadding = PaddingValues(0.dp)) {
+                Text(stringResource(R.string.cancel))
+            }
         }
     }
 }
 
 @Composable
 private fun FailedCard(failed: PackService.State.Failed) {
-    Card {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer
+        ),
+        shape = RoundedCornerShape(18.dp)
+    ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
                 stringResource(R.string.pack_failed, languageName(failed.wordLanguage)),
-                style = MaterialTheme.typography.titleSmall
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onErrorContainer
             )
-            Text(failed.reason, style = MaterialTheme.typography.bodySmall)
+            Text(
+                failed.reason,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
         }
     }
 }
 
+/** One installed pack: the language, what it holds, and what it cost. */
 @Composable
 private fun InstalledCard(pack: InstalledPack, onDelete: () -> Unit) {
-    Card {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(18.dp)
+    ) {
         Row(
-            Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 8.dp),
+            Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
                     languageName(pack.wordLanguage),
-                    style = MaterialTheme.typography.titleSmall
+                    style = MaterialTheme.typography.titleMedium
                 )
                 Text(
-                    stringResource(
-                        R.string.pack_detail,
-                        languageName(pack.glossLanguage),
+                    if (pack.entries > 0) {
+                        stringResource(
+                            R.string.pack_detail_full,
+                            thousands(pack.entries),
+                            megabytes(pack.bytes)
+                        )
+                    } else {
                         megabytes(pack.bytes)
-                    ),
-                    style = MaterialTheme.typography.bodySmall
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete))
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = stringResource(R.string.delete),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
 }
 
+/**
+ * The second way in, for a conversation rather than a page: a circle that follows the
+ * finger over one app and answers whatever it passes, without a modal layer.
+ */
+@Composable
+private fun HoverCard(state: UiState, actions: ScreenActions) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Row(
+            Modifier.padding(start = 16.dp, end = 12.dp, top = 14.dp, bottom = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier
+                    .size(36.dp)
+                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    Modifier
+                        .size(12.dp)
+                        .background(MaterialTheme.colorScheme.primary, CircleShape)
+                )
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    stringResource(R.string.hover_toggle),
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Text(
+                    stringResource(R.string.hover_explained),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Switch(checked = state.hoverEnabled, onCheckedChange = actions.onHoverChanged)
+        }
+    }
+}
+
+/** Three steps instead of two paragraphs: what to press, what to tap, what to hold. */
+@Composable
+private fun Steps() {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Step(1, stringResource(R.string.step_arm))
+        Step(2, stringResource(R.string.step_tap))
+        Step(3, stringResource(R.string.step_say))
+        Text(
+            stringResource(R.string.records_nothing),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 2.dp, top = 6.dp)
+        )
+    }
+}
+
+@Composable
+private fun Step(number: Int, text: String) {
+    Row(Modifier.padding(start = 2.dp), verticalAlignment = Alignment.Top) {
+        Text(
+            "$number",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            fontSize = 13.sp,
+            modifier = Modifier.width(18.dp)
+        )
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
 private fun languageName(tag: String): String =
-    Locale.forLanguageTag(tag).displayLanguage.ifEmpty { tag }
+    Locale(tag).displayLanguage.ifEmpty { tag }
 
 private fun megabytes(bytes: Long): String = "%.0f MB".format(bytes / 1_000_000.0)
+
+/** Entry counts run to six figures, where the thousands are all anyone reads. */
+private fun thousands(count: Int): String =
+    if (count >= 1000) "%.0fk".format(count / 1000.0) else count.toString()
+
+private fun percent(working: PackService.State.Working): String =
+    if (working.totalBytes <= 0) "" else "${working.bytesRead * 100 / working.totalBytes}%"

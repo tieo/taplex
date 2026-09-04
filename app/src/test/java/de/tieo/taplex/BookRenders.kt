@@ -37,8 +37,8 @@ class BookRenders {
         showSystemUi = false
     )
 
-    private val spanish = InstalledPack("es", "en", 88_000_000)
-    private val english = InstalledPack("en", "en", 310_000_000)
+    private val spanish = InstalledPack("es", "en", 88_000_000, 117_216)
+    private val english = InstalledPack("en", "en", 310_000_000, 483_400)
 
     /** One line as it was spoken, where a transcript would put it. */
     private val SPOKEN = listOf(
@@ -77,51 +77,69 @@ class BookRenders {
         lookup: Boolean = true,
         overlay: Boolean = true,
         installed: List<InstalledPack> = listOf(spanish),
-        build: PackService.State = PackService.State.Idle
-    ) = UiState(lookup, overlay, "en", installed, build)
+        build: PackService.State = PackService.State.Idle,
+        hover: Boolean = false
+    ) = UiState(lookup, overlay, "en", installed, build, hover)
 
     @Test
     fun `main screen nothing set up`() {
         paparazzi.snapshot("main-nothing-set-up-phone") {
-            TaplexScreen(state(lookup = false, overlay = false, installed = emptyList()))
+            TaplexTheme { TaplexScreen(state(lookup = false, overlay = false, installed = emptyList())) }
         }
     }
 
     @Test
     fun `main screen no dictionaries`() {
         paparazzi.snapshot("main-no-dictionaries-phone") {
-            TaplexScreen(state(installed = emptyList()))
+            TaplexTheme { TaplexScreen(state(installed = emptyList())) }
         }
     }
 
     @Test
     fun `main screen ready`() {
         paparazzi.snapshot("main-ready-phone") {
-            TaplexScreen(state(installed = listOf(spanish, english)))
+            TaplexTheme {
+                TaplexScreen(
+                    state(installed = listOf(spanish, english), hover = true).copy(
+                        query = "cocina",
+                        answer = Explanation(
+                            term = "cocina",
+                            entries = listOf(kitchen, toCook),
+                            translation = null,
+                            note = null,
+                            glossLanguage = "en"
+                        )
+                    )
+                )
+            }
         }
     }
 
     @Test
     fun `main screen building`() {
         paparazzi.snapshot("main-building-phone") {
-            TaplexScreen(
-                state(
-                    installed = emptyList(),
-                    build = PackService.State.Working("es", 34_000_000, 91_000_000, 42_000)
+            TaplexTheme {
+                TaplexScreen(
+                    state(
+                        installed = emptyList(),
+                        build = PackService.State.Working("es", 34_000_000, 91_000_000, 42_000)
+                    )
                 )
-            )
+            }
         }
     }
 
     @Test
     fun `main screen build failed`() {
         paparazzi.snapshot("main-failed-phone") {
-            TaplexScreen(
-                state(
-                    installed = emptyList(),
-                    build = PackService.State.Failed("ga", "Wiktionary has no Irish dictionary to build from.")
+            TaplexTheme {
+                TaplexScreen(
+                    state(
+                        installed = emptyList(),
+                        build = PackService.State.Failed("ga", "Wiktionary has no Irish dictionary to build from.")
+                    )
                 )
-            )
+            }
         }
     }
 
@@ -178,7 +196,7 @@ class BookRenders {
     fun `language picker unfiltered`() {
         val languages = PackSource.languages("en")
         paparazzi.snapshot("pick-all-phone") {
-            MaterialTheme {
+            TaplexTheme {
                 Surface {
                     LanguagePicker(
                         shown = languages,
@@ -195,7 +213,7 @@ class BookRenders {
     fun `language picker searched`() {
         val languages = PackSource.languages("en")
         paparazzi.snapshot("pick-search-phone") {
-            MaterialTheme {
+            TaplexTheme {
                 Surface {
                     LanguagePicker(
                         shown = PackSource.matching(languages, "spa"),

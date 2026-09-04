@@ -99,6 +99,12 @@ class Dictionary private constructor(
         return found
     }
 
+    /** How many entries the pack holds, as its own meta table records it. */
+    fun entryCount(): Int =
+        db.rawQuery("SELECT value FROM meta WHERE key = 'entries'", null).use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0)?.toIntOrNull() ?: 0 else 0
+        }
+
     fun close() = db.close()
 
     /** Senses are stored deflated, which is most of what keeps a pack to a phone's size. */
@@ -139,6 +145,16 @@ class Dictionary private constructor(
                     if (file.name.endsWith(".db") && parts.size == 2) parts[0] to parts[1] else null
                 }
                 .sortedBy { it.second }
+
+        /** What the pack holds, without keeping it open: for a screen, not for a lookup. */
+        fun entryCount(context: Context, glossLanguage: String, wordLanguage: String): Int {
+            val pack = open(context, glossLanguage, wordLanguage) ?: return 0
+            return try {
+                pack.entryCount()
+            } finally {
+                pack.close()
+            }
+        }
 
         /** Opens the pack explaining [wordLanguage] in [glossLanguage], or null if absent. */
         fun open(context: Context, glossLanguage: String, wordLanguage: String): Dictionary? {

@@ -22,6 +22,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -38,7 +40,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme { Main() } }
+        setContent { TaplexTheme { Main() } }
         requestNotificationPermission()
     }
 
@@ -64,18 +66,29 @@ private fun Main() {
     var reread by remember { mutableIntStateOf(0) }
     var picking by remember { mutableStateOf(false) }
     var hovering by remember { mutableStateOf(prefs.hoverEnabled) }
+    var query by remember { mutableStateOf("") }
+    var answer by remember { mutableStateOf<Explanation?>(null) }
+    val lookup = remember { Lookup(context) }
+    val scope = rememberCoroutineScope()
     LaunchedEffect(build) { reread++ }
 
-    val state = remember(reread, build, hovering) {
+    val state = remember(reread, build, hovering, query, answer) {
         UiState(
             lookupEnabled = lookupEnabled(context),
             canDrawOverlay = Settings.canDrawOverlays(context),
             glossLanguage = prefs.targetLanguage,
             installed = Dictionary.installed(context).map { (gloss, word) ->
-                InstalledPack(word, gloss, Dictionary.file(context, gloss, word).length())
+                InstalledPack(
+                    wordLanguage = word,
+                    glossLanguage = gloss,
+                    bytes = Dictionary.file(context, gloss, word).length(),
+                    entries = Dictionary.entryCount(context, gloss, word)
+                )
             },
             build = build,
-            hoverEnabled = hovering
+            hoverEnabled = hovering,
+            query = query,
+            answer = answer
         )
     }
 
@@ -99,6 +112,16 @@ private fun Main() {
                 reread++
             },
             onCancelBuild = { PackService.cancel(context) },
+            onQueryChanged = { typed ->
+                query = typed
+                if (typed.isBlank()) answer = null
+            },
+            onSearch = {
+                val term = query.trim()
+                if (term.isNotEmpty()) {
+                    scope.launch { answer = lookup.explain(term) }
+                }
+            },
             onHoverChanged = { wanted ->
                 prefs.hoverEnabled = wanted
                 hovering = wanted
