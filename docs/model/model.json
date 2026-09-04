@@ -90,6 +90,58 @@
       "tag": "REQ",
       "title": "The language is found by typing",
       "uid": "REQ-PICK"
+    },
+    {
+      "relations": [
+        {
+          "role": "Lives in",
+          "to": "VIEW-HOVER"
+        }
+      ],
+      "statement": "Looking a word up during a conversation freezes nothing and takes no touch away from the app being talked to: only the circle itself is Taplex's to press.",
+      "status": "Built",
+      "tag": "REQ",
+      "title": "The conversation keeps running",
+      "uid": "REQ-HOVER-LIVE"
+    },
+    {
+      "relations": [
+        {
+          "role": "Lives in",
+          "to": "VIEW-HOVER"
+        }
+      ],
+      "statement": "The circle rides above the fingertip and the answer opens clear of both, so the word being explained is never under the hand explaining it.",
+      "status": "Built",
+      "tag": "REQ",
+      "title": "The word can be seen while it is pointed at",
+      "uid": "REQ-HOVER-SIGHT"
+    },
+    {
+      "relations": [
+        {
+          "role": "Lives in",
+          "to": "VIEW-HOVER"
+        }
+      ],
+      "statement": "The circle appears when the app being talked to comes to the front and is gone everywhere else, so nothing of Taplex's sits over any other app.",
+      "status": "Built",
+      "tag": "REQ",
+      "title": "The circle belongs to one app",
+      "uid": "REQ-HOVER-FOLLOW"
+    },
+    {
+      "relations": [
+        {
+          "role": "Lives in",
+          "to": "VIEW-SAY"
+        }
+      ],
+      "statement": "A word someone does not know how to say is asked for in the language of the explanations and answered with the word for it in the language being learned, as an entry rather than a bare translation.",
+      "status": "Built",
+      "tag": "REQ",
+      "title": "A word that is wanted, not read",
+      "uid": "REQ-SAY"
     }
   ],
   "states": [
@@ -272,6 +324,89 @@
       "tag": "STATE",
       "title": "Searched",
       "uid": "STATE-PICK-SEARCH"
+    },
+    {
+      "kind": "Empty",
+      "relations": [
+        {
+          "role": "State of",
+          "to": "VIEW-HOVER"
+        }
+      ],
+      "renders": [
+        "hover-parked-phone.png"
+      ],
+      "statement": "Armed and waiting: the circle sits at the edge of the conversation with nothing else on screen.",
+      "status": "Built",
+      "tag": "STATE",
+      "title": "Parked",
+      "uid": "STATE-HOVER-PARKED"
+    },
+    {
+      "relations": [
+        {
+          "role": "State of",
+          "to": "VIEW-HOVER"
+        }
+      ],
+      "renders": [
+        "hover-word-phone.png"
+      ],
+      "statement": "Mid-drag: the circle rides above the finger, the word under it is marked, and its entry stands open below it.",
+      "status": "Built",
+      "tag": "STATE",
+      "title": "On a word",
+      "uid": "STATE-HOVER-WORD"
+    },
+    {
+      "kind": "Empty",
+      "relations": [
+        {
+          "role": "State of",
+          "to": "VIEW-HOVER"
+        }
+      ],
+      "renders": [
+        "hover-none-phone.png"
+      ],
+      "statement": "The circle is over a word the pack does not have, so what stands under it is a machine translation, marked as the guess it is.",
+      "status": "Built",
+      "tag": "STATE",
+      "title": "On a word with no entry",
+      "uid": "STATE-HOVER-NONE"
+    },
+    {
+      "kind": "Empty",
+      "relations": [
+        {
+          "role": "State of",
+          "to": "VIEW-SAY"
+        }
+      ],
+      "renders": [
+        "say-asked-phone.png"
+      ],
+      "statement": "The field is open and empty, saying which language the answer will come back in.",
+      "status": "Built",
+      "tag": "STATE",
+      "title": "Asked",
+      "uid": "STATE-SAY-ASKED"
+    },
+    {
+      "relations": [
+        {
+          "role": "State of",
+          "to": "VIEW-SAY"
+        }
+      ],
+      "renders": [
+        "say-answered-phone.png"
+      ],
+      "statement": "A phrase was typed and the word for it came back with its entry: senses, marks and an example, so the guess can be judged.",
+      "status": "Built",
+      "tag": "STATE",
+      "title": "Answered",
+      "uid": "STATE-SAY-ANSWERED"
     }
   ],
   "stories": [],
@@ -349,7 +484,64 @@
       "status": "Built",
       "tag": "VIEW",
       "title": "Language picker",
-      "uid": "VIEW-PICK"
+      "uid": "VIEW-PICK",
+      "sources": [
+        "app/src/main/java/de/tieo/taplex/TaplexScreen.kt",
+        "app/src/main/java/de/tieo/taplex/PackSource.kt"
+      ],
+      "states": [
+        "Every language",
+        "Searched"
+      ]
+    },
+    {
+      "relations": [
+        {
+          "role": "Reached from",
+          "to": "VIEW-HOME"
+        }
+      ],
+      "renders": [
+        "hover-word-phone.png"
+      ],
+      "sources": [
+        "app/src/main/java/de/tieo/taplex/HoverController.kt",
+        "app/src/main/java/de/tieo/taplex/HoverViews.kt"
+      ],
+      "statement": "The way in for a conversation: a circle dragged over the words being spoken, answering whatever it passes without stopping the app underneath.",
+      "states": [
+        "Parked",
+        "On a word",
+        "On a word with no entry"
+      ],
+      "status": "Built",
+      "tag": "VIEW",
+      "title": "The circle",
+      "uid": "VIEW-HOVER"
+    },
+    {
+      "relations": [
+        {
+          "role": "Reached from",
+          "to": "VIEW-HOVER"
+        }
+      ],
+      "renders": [
+        "say-answered-phone.png"
+      ],
+      "sources": [
+        "app/src/main/java/de/tieo/taplex/HoverController.kt",
+        "app/src/main/java/de/tieo/taplex/HoverViews.kt"
+      ],
+      "statement": "The other direction: a field for what someone wants to say, answered with the word for it and that word's entry.",
+      "states": [
+        "Asked",
+        "Answered"
+      ],
+      "status": "Built",
+      "tag": "VIEW",
+      "title": "Say it",
+      "uid": "VIEW-SAY"
     }
   ]
 }

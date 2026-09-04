@@ -64,6 +64,7 @@ class WordTranslator {
             }
             Result.Ok(translator.translate(word).await(), source, target)
         } catch (e: Exception) {
+            Log.w(TAG, "translate $source>$target failed", e)
             Result.Failed(e.message ?: e.javaClass.simpleName)
         }
     }

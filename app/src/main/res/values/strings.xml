@@ -10,6 +10,13 @@
     <string name="needs_overlay">Allow Taplex to draw over other apps first.</string>
     <string name="no_text_found">Nothing readable on this screen.</string>
     <string name="no_entry">No dictionary entry.</string>
+    <string name="no_translation">No %1$s word came back for that.</string>
+    <string name="say_prompt">Say it in %1$s</string>
+    <string name="say_hint">a word you are looking for</string>
+    <string name="say_no_pack">Add a dictionary first: there is no language to say it in yet.</string>
+    <string name="hover_title">Talking practice</string>
+    <string name="hover_toggle">Circle over the Gemini app</string>
+    <string name="hover_explained">A circle rides above your finger: drag it onto a word and its entry opens under it, without freezing the conversation. Long press it for the word you want to say.</string>
     <string name="no_pack">No %1$s dictionary installed, so nothing explains this word in %2$s.</string>
     <string name="guessed">Machine translation, not a dictionary entry.</string>
     <string name="tapped_form">tapped: %1$s</string>

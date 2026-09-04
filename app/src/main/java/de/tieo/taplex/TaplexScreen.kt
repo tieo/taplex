@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -43,7 +44,8 @@ data class UiState(
     val canDrawOverlay: Boolean,
     val glossLanguage: String,
     val installed: List<InstalledPack>,
-    val build: PackService.State
+    val build: PackService.State,
+    val hoverEnabled: Boolean = false
 )
 
 /** A dictionary on the phone: which words, explained in what, and how much room it takes. */
@@ -59,7 +61,8 @@ data class ScreenActions(
     val onAllowOverlay: () -> Unit = {},
     val onAddDictionary: () -> Unit = {},
     val onDeleteDictionary: (InstalledPack) -> Unit = {},
-    val onCancelBuild: () -> Unit = {}
+    val onCancelBuild: () -> Unit = {},
+    val onHoverChanged: (Boolean) -> Unit = {}
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -119,6 +122,8 @@ fun TaplexScreen(state: UiState, actions: ScreenActions = ScreenActions()) {
                 )
             }
 
+            item { HoverCard(state, actions) }
+
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
@@ -132,6 +137,36 @@ fun TaplexScreen(state: UiState, actions: ScreenActions = ScreenActions()) {
                 }
             }
         }
+    }
+}
+
+/**
+ * The second way in, for a conversation rather than a page: a circle that follows the
+ * finger over one app and answers whatever it passes, without a modal layer.
+ */
+@Composable
+private fun HoverCard(state: UiState, actions: ScreenActions) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            stringResource(R.string.hover_title),
+            style = MaterialTheme.typography.titleMedium
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                stringResource(R.string.hover_toggle),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f)
+            )
+            Switch(checked = state.hoverEnabled, onCheckedChange = actions.onHoverChanged)
+        }
+        Text(
+            stringResource(R.string.hover_explained),
+            style = MaterialTheme.typography.bodySmall
+        )
     }
 }
 

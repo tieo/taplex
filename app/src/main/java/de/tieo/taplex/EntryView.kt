@@ -162,7 +162,8 @@ class EntryView(context: Context) : ScrollView(context) {
     private fun dp(value: Int): Int =
         (value * context.resources.displayMetrics.density).toInt()
 
-    private companion object {
+    companion object {
+        /** The colour of everything that is not the answer itself. */
         val MUTED = Color.argb(170, 255, 255, 255)
         val TAG = Color.rgb(150, 200, 255)
         val LINK = Color.rgb(130, 180, 255)

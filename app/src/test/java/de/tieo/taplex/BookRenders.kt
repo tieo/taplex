@@ -40,6 +40,39 @@ class BookRenders {
     private val spanish = InstalledPack("es", "en", 88_000_000)
     private val english = InstalledPack("en", "en", 310_000_000)
 
+    /** One line as it was spoken, where a transcript would put it. */
+    private val SPOKEN = listOf(
+        Word("La", Rect(60, 300, 130, 360), "La cocina es la habitación más grande."),
+        Word("cocina", Rect(150, 300, 420, 360), "La cocina es la habitación más grande."),
+        Word("es", Rect(440, 300, 520, 360), "La cocina es la habitación más grande."),
+        Word("la", Rect(540, 300, 610, 360), "La cocina es la habitación más grande."),
+        Word("habitación", Rect(60, 390, 470, 450), "La cocina es la habitación más grande."),
+        Word("más", Rect(490, 390, 610, 450), "La cocina es la habitación más grande."),
+        Word("grande", Rect(630, 390, 880, 450), "La cocina es la habitación más grande.")
+    )
+
+    /** The word the circle is over in the hover renders. */
+    private val HOVERED = SPOKEN[1].bounds
+
+    private val kitchen = Entry(
+        lemma = "cocina",
+        pos = "noun",
+        ipa = "/koˈt͡ʃina/",
+        senses = listOf(
+            Sense("kitchen", listOf("La cocina es la habitación más grande."), listOf("feminine")),
+            Sense("cuisine, cooking", emptyList(), emptyList()),
+            Sense("stove, cooker", emptyList(), listOf("Spain"))
+        ),
+        label = null
+    )
+    private val toCook = Entry(
+        lemma = "cocinar",
+        pos = "verb",
+        ipa = null,
+        senses = listOf(Sense("to cook", emptyList(), emptyList())),
+        label = "indicative present singular third person"
+    )
+
     private fun state(
         lookup: Boolean = true,
         overlay: Boolean = true,
@@ -99,30 +132,7 @@ class BookRenders {
                 EntryView(context).apply {
                     showEntries(
                         tapped = "cocina",
-                        entries = listOf(
-                            Entry(
-                                lemma = "cocina",
-                                pos = "noun",
-                                ipa = "/koˈt͡ʃina/",
-                                senses = listOf(
-                                    Sense(
-                                        "kitchen",
-                                        listOf("La cocina es la habitación más grande."),
-                                        listOf("feminine")
-                                    ),
-                                    Sense("cuisine, cooking", emptyList(), emptyList()),
-                                    Sense("stove, cooker", emptyList(), listOf("Spain"))
-                                ),
-                                label = null
-                            ),
-                            Entry(
-                                lemma = "cocinar",
-                                pos = "verb",
-                                ipa = null,
-                                senses = listOf(Sense("to cook", emptyList(), emptyList())),
-                                label = "indicative present singular third person"
-                            )
-                        ),
+                        entries = listOf(kitchen, toCook),
                         glossLanguage = "en",
                         translation = null
                     )
@@ -200,15 +210,7 @@ class BookRenders {
 
     @Test
     fun `word layer over a screen`() {
-        val sentence = listOf(
-            Word("La", Rect(60, 300, 130, 360), ""),
-            Word("cocina", Rect(150, 300, 420, 360), ""),
-            Word("es", Rect(440, 300, 520, 360), ""),
-            Word("la", Rect(540, 300, 610, 360), ""),
-            Word("habitación", Rect(60, 390, 470, 450), ""),
-            Word("más", Rect(490, 390, 610, 450), ""),
-            Word("grande", Rect(630, 390, 880, 450), "")
-        )
+        val sentence = SPOKEN
         paparazzi.snapshot("layer-words-phone") {
             AndroidView { context ->
                 FrameLayout(context).apply {
@@ -231,6 +233,154 @@ class BookRenders {
             }
         }
     }
+
+    @Test
+    fun `hover circle parked`() {
+        paparazzi.snapshot("hover-parked-phone") {
+            AndroidView { context -> conversation(context, circleAt = null, marked = null) }
+        }
+    }
+
+    @Test
+    fun `hover circle on a word`() {
+        paparazzi.snapshot("hover-word-phone") {
+            AndroidView { context ->
+                conversation(
+                    context,
+                    circleAt = HOVERED,
+                    marked = HOVERED,
+                    card = { view ->
+                        view.showEntries(
+                            tapped = "cocina",
+                            entries = listOf(kitchen, toCook),
+                            glossLanguage = "en",
+                            translation = null
+                        )
+                    }
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `hover circle on a word with no entry`() {
+        paparazzi.snapshot("hover-none-phone") {
+            AndroidView { context ->
+                conversation(
+                    context,
+                    circleAt = HOVERED,
+                    marked = HOVERED,
+                    card = { view ->
+                        view.showEntries(
+                            tapped = "tuper",
+                            entries = emptyList(),
+                            glossLanguage = "en",
+                            translation = "food container"
+                        )
+                    }
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `say it asked`() {
+        paparazzi.snapshot("say-asked-phone") {
+            AndroidView { context ->
+                SayInputView(context).apply { askFor("Spanish") }
+            }
+        }
+    }
+
+    @Test
+    fun `say it answered`() {
+        paparazzi.snapshot("say-answered-phone") {
+            AndroidView { context ->
+                SayInputView(context).apply {
+                    askFor("Spanish")
+                    field.setText("hint")
+                    show(
+                        Explanation(
+                            term = "hint",
+                            entries = listOf(
+                                Entry(
+                                    lemma = "pista",
+                                    pos = "noun",
+                                    ipa = "/ˈpista/",
+                                    senses = listOf(
+                                        Sense("clue, hint", listOf("No tengo ninguna pista."), listOf("feminine")),
+                                        Sense("track, trail", emptyList(), emptyList()),
+                                        Sense("runway", emptyList(), listOf("aviation"))
+                                    ),
+                                    label = null
+                                )
+                            ),
+                            translation = "pista",
+                            note = null,
+                            glossLanguage = "en"
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * The conversation the circle is dragged over: the words of a spoken line where the
+     * layer would find them, with the real circle, mark and card composed the way
+     * [HoverController] puts them on screen.
+     */
+    private fun conversation(
+        context: Context,
+        circleAt: Rect?,
+        marked: Rect?,
+        card: ((EntryView) -> Unit)? = null
+    ): View {
+        val density = context.resources.displayMetrics.density
+        val frame = FrameLayout(context)
+        frame.setBackgroundColor(Color.WHITE)
+        frame.addView(
+            AndroidViewOf(context, capturedFrame(SPOKEN)),
+            FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, SOURCE_HEIGHT)
+        )
+        frame.addView(
+            HoverHighlightView(context).apply { mark(marked) },
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        )
+        if (card != null) {
+            val view = EntryView(context)
+            card(view)
+            frame.addView(
+                view,
+                FrameLayout.LayoutParams((SOURCE_WIDTH * 0.82f).toInt(), WRAP).apply {
+                    leftMargin = marked?.left ?: 0
+                    topMargin = (marked?.bottom ?: 0) + (8 * density).toInt()
+                }
+            )
+        }
+        val size = (40 * density).toInt()
+        frame.addView(
+            HoverBubbleView(context).apply { active = circleAt != null },
+            FrameLayout.LayoutParams(size, size).apply {
+                // Parked at the side, or riding above the finger on the word it is reading.
+                leftMargin = circleAt?.let { it.left + it.width() / 2 - size / 2 }
+                    ?: (SOURCE_WIDTH - size - (16 * density).toInt())
+                topMargin = circleAt?.let { it.top - size / 2 } ?: (SOURCE_HEIGHT / 2)
+            }
+        )
+        return frame
+    }
+
+    /** A view that just draws the given bitmap, standing in for the screen underneath. */
+    private fun AndroidViewOf(context: Context, bitmap: Bitmap): View =
+        object : View(context) {
+            override fun onDraw(canvas: android.graphics.Canvas) {
+                canvas.drawBitmap(bitmap, 0f, 0f, null)
+            }
+        }
 
     /**
      * Stands in for the screenshot the layer freezes: the words are painted where their
@@ -255,6 +405,7 @@ class BookRenders {
         /** The pixel size the word boxes below are measured in: a phone screen, portrait. */
         const val SOURCE_WIDTH = 1080
         const val SOURCE_HEIGHT = 2400
+        const val WRAP = FrameLayout.LayoutParams.WRAP_CONTENT
     }
 
     /** Renders a plain view inside a composition, since two of these screens are views. */

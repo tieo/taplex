@@ -19,7 +19,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * The modal layer: word boxes and the translation popup, over a captured frame or over the
@@ -56,13 +55,10 @@ class OverlayController(
         ) : Source
     }
 
-    private val prefs = Prefs(context)
-    private val translator = WordTranslator()
+    private val lookup = Lookup(context)
     private val scope = CoroutineScope(Dispatchers.Main)
     private var translation: Job? = null
 
-    private var sourceLanguage: String? = null
-    private var dictionary: Dictionary? = null
     private var root: FrameLayout? = null
     private var popup: EntryView? = null
     private lateinit var screen: WordLayerView
@@ -143,8 +139,8 @@ class OverlayController(
         Log.d("Taplex", "words=" + found.words.size + " prose=" + found.prose().take(120))
         DebugState.lookup(found, source is Source.Reported)
         scope.launch {
-            sourceLanguage = translator.identify(found.prose(), prefs.sourceLanguage)
-            Log.d("Taplex", "source=" + sourceLanguage + " target=" + prefs.targetLanguage)
+            val source = lookup.identify(found.prose())
+            Log.d("Taplex", "source=" + source + " target=" + lookup.glossLanguage)
         }
     }
 
@@ -157,7 +153,6 @@ class OverlayController(
 
     private fun lookUp(word: Word) {
         val term = word.text.stripped()
-        val line = word.line
         val scale = screen.scale()
         val x = (word.bounds.left * scale).toInt()
         val y = (word.bounds.bottom * scale).toInt()
@@ -165,72 +160,23 @@ class OverlayController(
 
         translation?.cancel()
         translation = scope.launch {
-            // A screenful is the better sample, but if it was inconclusive the word itself
-            // is still worth a try.
-            val source = sourceLanguage ?: translator.identify(term, prefs.sourceLanguage)
-            if (source == null) {
+            val answer = lookup.explain(term, word.line)
+            if (answer.entries.isEmpty() && answer.translation == null && answer.note == null) {
                 popupAt(x, y).showMessage(context.getString(R.string.no_source_language))
                 return@launch
             }
-            explain(term, line, source, x, y)
-        }
-    }
-
-    /**
-     * The entry first, a translation only where there is no entry. A dictionary says what a
-     * word means, in how many ways, and how it is used; a translation of a single word
-     * pulled out of its sentence is one guess at one of those senses.
-     */
-    private suspend fun explain(term: String, line: String, source: String, x: Int, y: Int) {
-        val target = prefs.targetLanguage
-        val pack = withContext(Dispatchers.IO) {
-            // The open pack is kept between lookups, but only for the pair it was opened
-            // for: a screen in another language must not be answered out of it.
-            val open = dictionary
-            if (open != null && open.glossLanguage == target && open.wordLanguage == source) {
-                open
-            } else {
-                open?.close()
-                dictionary = null
-                Dictionary.open(context, target, source)?.also { dictionary = it }
-            }
-        }
-        val entries = withContext(Dispatchers.IO) { pack?.look(term, line).orEmpty() }
-        if (entries.isNotEmpty()) {
             val view = popupAt(x, y)
-            view.showEntries(term, entries, target, translation = null)
-            view.onOpenArticle = { openArticle(entries.first().lemma, target) }
-            return
+            view.showEntries(
+                tapped = answer.term,
+                entries = answer.entries,
+                glossLanguage = answer.glossLanguage,
+                translation = answer.translation,
+                note = answer.note
+            )
+            val article = answer.entries.firstOrNull()?.lemma ?: answer.term
+            view.onOpenArticle = { openArticle(article, answer.glossLanguage) }
         }
-
-        // A missing pack and a missing word are different answers: one is a word this
-        // dictionary does not have, the other is a language with no dictionary at all, and
-        // only the second can be fixed by installing something.
-        val note = if (pack == null) {
-            context.getString(R.string.no_pack, languageName(source), languageName(target))
-        } else {
-            null
-        }
-        // Translating a word into the language it is already in hands back the word, which
-        // says nothing and reads as an answer.
-        val guess = if (source == target) null else translate(term, source, target)
-        val view = popupAt(x, y)
-        view.showEntries(term, emptyList(), target, translation = guess, note = note)
-        view.onOpenArticle = { openArticle(term, target) }
     }
-
-    private suspend fun translate(term: String, source: String, target: String): String? =
-        when (val result = translator.translate(term, source, target, allowDownload = true)) {
-            is WordTranslator.Result.Ok ->
-                // The model hands unknown words back unchanged; that is not a translation.
-                result.text.takeIf { !it.equals(term, ignoreCase = true) }
-            is WordTranslator.Result.NeedsDownload ->
-                context.getString(R.string.downloading_model, result.source, result.target)
-            is WordTranslator.Result.Failed -> null
-        }
-
-    private fun languageName(tag: String): String =
-        java.util.Locale(tag).displayLanguage.ifEmpty { tag }
 
     /** Long press anywhere on the layer: Taplex's own screen, for languages and packs. */
     private fun openSettings() {
@@ -288,9 +234,7 @@ class OverlayController(
     fun dismiss() {
         translation?.cancel()
         scope.cancel()
-        translator.close()
-        dictionary?.close()
-        dictionary = null
+        lookup.close()
         root?.let { windowManager.removeView(it) }
         root = null
         popup = null

@@ -63,7 +63,10 @@ object DebugState {
  * app-private state to app-private storage, or start the lookup the accessibility button
  * starts anyway.
  */
-class DebugBridge(private val onLookup: () -> Unit) {
+class DebugBridge(
+    private val onLookup: () -> Unit,
+    private val onHoverPackage: (String) -> Unit = {}
+) {
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -73,6 +76,16 @@ class DebugBridge(private val onLookup: () -> Unit) {
                     File(dir, "debug_state.json").writeText(DebugState.json())
                 }
                 ACTION_LOOKUP -> onLookup()
+                // The circle follows one app, and the app it was built for is not on an
+                // emulator. This points it at whatever is being tested with instead.
+                ACTION_HOVER -> {
+                    val target = intent.getStringExtra("package") ?: return
+                    Prefs(context).apply {
+                        hoverPackage = target
+                        hoverEnabled = true
+                    }
+                    onHoverPackage(target)
+                }
             }
         }
     }
@@ -82,6 +95,7 @@ class DebugBridge(private val onLookup: () -> Unit) {
         val filter = IntentFilter().apply {
             addAction(ACTION_DUMP)
             addAction(ACTION_LOOKUP)
+            addAction(ACTION_HOVER)
         }
         ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_EXPORTED)
     }
@@ -94,5 +108,6 @@ class DebugBridge(private val onLookup: () -> Unit) {
     private companion object {
         const val ACTION_DUMP = "de.tieo.taplex.DEBUG_DUMP"
         const val ACTION_LOOKUP = "de.tieo.taplex.DEBUG_LOOKUP"
+        const val ACTION_HOVER = "de.tieo.taplex.DEBUG_HOVER"
     }
 }

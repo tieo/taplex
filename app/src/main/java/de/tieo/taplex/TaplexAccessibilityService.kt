@@ -11,6 +11,7 @@ import android.util.Log
 import android.view.Display
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityWindowInfo
 import android.widget.Toast
 
 /**
@@ -28,7 +29,11 @@ class TaplexAccessibilityService : AccessibilityService() {
 
     private lateinit var windowManager: WindowManager
     private var overlay: OverlayController? = null
-    private val debug = DebugBridge { lookUp() }
+    private var hover: HoverController? = null
+    private val debug = DebugBridge(
+        onLookup = { lookUp() },
+        onHoverPackage = { hoverController().arm() }
+    )
 
     private val buttonCallback = object : AccessibilityButtonController.AccessibilityButtonCallback() {
         override fun onClicked(controller: AccessibilityButtonController) = lookUp()
@@ -41,12 +46,55 @@ class TaplexAccessibilityService : AccessibilityService() {
         running = this
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
+    /**
+     * The circle follows one app: it comes up when that app is in front and goes away when
+     * it is not, so a bubble is never sitting over anything else.
+     *
+     * What counts as being in front is the window the system is actually treating as
+     * active, not the package the event names. A keyboard, a toast, a system dialog and
+     * Taplex's own overlay all raise window events of their own, and taking those at face
+     * value pulls the circle away in the middle of a conversation that never left.
+     */
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        val prefs = Prefs(this)
+        if (!prefs.hoverEnabled || !Settings.canDrawOverlays(this)) {
+            hover?.disarm()
+            return
+        }
+        val front = frontApp()
+        if (front == null || front == packageName) return
+        if (front == prefs.hoverPackage) hoverController().arm() else hover?.disarm()
+    }
+
+    /**
+     * The app whose window is active, which is the one being read. Anything of the system's
+     * own that happens to be showing is not an app coming to the front.
+     */
+    private fun frontApp(): String? {
+        val active = rootInActiveWindow?.packageName?.toString()
+        if (active != null && active !in SYSTEM_WINDOWS) return active
+        return windows
+            .filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+            .maxByOrNull { it.layer }
+            ?.root
+            ?.packageName
+            ?.toString()
+    }
+
+    private fun hoverController(): HoverController =
+        hover ?: HoverController(
+            context = this,
+            windowManager = windowManager,
+            readWords = { NodeWords.read(rootInActiveWindow, packageName, screenBounds()).found }
+        ).also { hover = it }
 
     override fun onInterrupt() = Unit
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {
         running = null
+        hover?.close()
+        hover = null
         overlay?.dismiss()
         accessibilityButtonController.unregisterAccessibilityButtonCallback(buttonCallback)
         debug.unregister(this)
@@ -148,6 +196,13 @@ class TaplexAccessibilityService : AccessibilityService() {
          * the screenshot path sees more than it does.
          */
         private const val MIN_REPORTED_WORDS = 3
+
+        /** Windows that belong to the system rather than to whatever app is being read. */
+        private val SYSTEM_WINDOWS = setOf(
+            "com.android.systemui",
+            "com.google.android.inputmethod.latin",
+            "com.android.inputmethod.latin"
+        )
 
         /**
          * The connected service, or null while the user has it turned off. Anything in the

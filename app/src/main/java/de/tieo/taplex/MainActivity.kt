@@ -63,9 +63,10 @@ private fun Main() {
     // so what the phone says is read again whenever this comes back into view.
     var reread by remember { mutableIntStateOf(0) }
     var picking by remember { mutableStateOf(false) }
+    var hovering by remember { mutableStateOf(prefs.hoverEnabled) }
     LaunchedEffect(build) { reread++ }
 
-    val state = remember(reread, build) {
+    val state = remember(reread, build, hovering) {
         UiState(
             lookupEnabled = lookupEnabled(context),
             canDrawOverlay = Settings.canDrawOverlays(context),
@@ -73,7 +74,8 @@ private fun Main() {
             installed = Dictionary.installed(context).map { (gloss, word) ->
                 InstalledPack(word, gloss, Dictionary.file(context, gloss, word).length())
             },
-            build = build
+            build = build,
+            hoverEnabled = hovering
         )
     }
 
@@ -96,7 +98,11 @@ private fun Main() {
                 Dictionary.file(context, pack.glossLanguage, pack.wordLanguage).delete()
                 reread++
             },
-            onCancelBuild = { PackService.cancel(context) }
+            onCancelBuild = { PackService.cancel(context) },
+            onHoverChanged = { wanted ->
+                prefs.hoverEnabled = wanted
+                hovering = wanted
+            }
         )
     )
 
