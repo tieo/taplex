@@ -93,7 +93,8 @@ data class ScreenActions(
     val onCancelBuild: () -> Unit = {},
     val onHoverChanged: (Boolean) -> Unit = {},
     val onQueryChanged: (String) -> Unit = {},
-    val onSearch: () -> Unit = {}
+    val onSearch: () -> Unit = {},
+    val onAddTile: (() -> Unit)? = null
 )
 
 @Composable
@@ -289,8 +290,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.home(
     item { SearchField(state, actions) }
     state.answer?.let { answer -> item { AnswerCard(answer) } }
 
-    item { SectionHeader(stringResource(R.string.hover_title)) }
+    item { SectionHeader(stringResource(R.string.ways_title)) }
     item { HoverCard(state, actions) }
+    actions.onAddTile?.let { add -> item { TileCard(add) } }
 
     item { SectionHeader(stringResource(R.string.dictionaries_title)) }
     when (val build = state.build) {
@@ -664,6 +666,40 @@ private fun HoverCard(state: UiState, actions: ScreenActions) {
             }
             Spacer(Modifier.width(8.dp))
             Switch(checked = state.hoverEnabled, onCheckedChange = actions.onHoverChanged)
+        }
+    }
+}
+
+/**
+ * The trigger that depends on nothing else. The accessibility button only appears on a
+ * phone where it has been switched on separately, and a tile is one press away from any
+ * screen, so the app offers to put one there rather than describing how to.
+ */
+@Composable
+private fun TileCard(onAdd: () -> Unit) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Row(
+            Modifier.padding(start = 16.dp, end = 12.dp, top = 14.dp, bottom = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    stringResource(R.string.tile_add),
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Text(
+                    stringResource(R.string.tile_add_why),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Button(onClick = onAdd, shape = RoundedCornerShape(12.dp)) {
+                Text(stringResource(R.string.add))
+            }
         }
     }
 }

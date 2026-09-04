@@ -1,10 +1,12 @@
 package de.tieo.taplex
 
 import android.Manifest
+import android.app.StatusBarManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -17,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -27,6 +30,9 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 /**
@@ -71,6 +77,18 @@ private fun Main() {
     val lookup = remember { Lookup(context) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(build) { reread++ }
+
+    // Both permissions are granted on a screen of the system's, not here, so the only
+    // moment the answer can have changed is when this comes back to the front. Without
+    // this the step someone just finished still says it is waiting for them.
+    val owner = LocalLifecycleOwner.current
+    DisposableEffect(owner) {
+        val watcher = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) reread++
+        }
+        owner.lifecycle.addObserver(watcher)
+        onDispose { owner.lifecycle.removeObserver(watcher) }
+    }
 
     val state = remember(reread, build, hovering, query, answer) {
         UiState(
@@ -120,6 +138,21 @@ private fun Main() {
                 val term = query.trim()
                 if (term.isNotEmpty()) {
                     scope.launch { answer = lookup.explain(term) }
+                }
+            },
+            onAddTile = {
+                // The tile is the trigger that needs nothing else turned on. Asking for it
+                // here is the only way to add one without walking someone through editing
+                // their quick settings by hand.
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    context.getSystemService(StatusBarManager::class.java)
+                        ?.requestAddTileService(
+                            ComponentName(context, TaplexTileService::class.java),
+                            context.getString(R.string.tile_label),
+                            Icon.createWithResource(context, R.drawable.ic_tile),
+                            {},
+                            {}
+                        )
                 }
             },
             onHoverChanged = { wanted ->

@@ -14,6 +14,9 @@
     <string name="say_prompt">Say it in %1$s</string>
     <string name="say_hint">a word you are looking for</string>
     <string name="say_no_pack">Add a dictionary first: there is no language to say it in yet.</string>
+    <string name="ways_title">Ways in</string>
+    <string name="tile_add">Quick settings tile</string>
+    <string name="tile_add_why">One press from any screen, no accessibility button needed</string>
     <string name="hover_title">Talking practice</string>
     <string name="hover_toggle">Circle over the Gemini app</string>
     <string name="hover_explained">Drag it over a word while you talk</string>
@@ -38,14 +41,14 @@
     <string name="look_up_hint">Look up a %1$s word</string>
     <string name="setup_title">Setup</string>
     <string name="setup_lookup">Word lookup</string>
-    <string name="setup_lookup_why">Lets Taplex read the words on screen</string>
+    <string name="setup_lookup_why">Lets Taplex read the words on screen. Nothing else needs turning on.</string>
     <string name="setup_overlay">Draw over other apps</string>
     <string name="setup_overlay_why">Puts the answer over what you are reading</string>
     <string name="ready">Ready. Press the accessibility button or the tile.</string>
     <string name="ready_no_pack">Allowed. Add a dictionary and you are ready.</string>
     <string name="add">Add</string>
     <string name="pack_detail_full">%1$s entries \u00b7 %2$s</string>
-    <string name="step_arm">Press the accessibility button, or the Taplex tile.</string>
+    <string name="step_arm">Press the Taplex tile in quick settings, or the accessibility button if you use one.</string>
     <string name="step_tap">Tap a word. Its entry opens: senses, marks, an example.</string>
     <string name="step_say">In a conversation, drag the circle. Long press it to ask for a word.</string>
     <string name="records_nothing">Nothing is recorded. Words come from the apps themselves.</string>
