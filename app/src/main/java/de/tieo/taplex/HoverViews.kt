@@ -34,7 +34,16 @@ open class HoverBubbleView(context: Context) : View(context) {
             invalidate()
         }
 
+    /** While a drag is on, the mark has become the mist; the handle draws nothing. */
+    var masked: Boolean = false
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
     override fun onDraw(canvas: Canvas) {
+        if (masked) return
         val icon = mark ?: return
         icon.setBounds(0, 0, width, height)
         icon.alpha = if (active) 255 else 200

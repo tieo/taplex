@@ -51,6 +51,7 @@ class HoverController(
     private var bubble: BubbleView? = null
     private var layer: FrameLayout? = null
     private var highlight: HoverHighlightView? = null
+    private var mist: MistView? = null
     private var card: EntryView? = null
     private var input: View? = null
 
@@ -242,16 +243,21 @@ class HoverController(
         if (layer != null) return
         val container = FrameLayout(context)
         val marks = HoverHighlightView(context)
+        val flow = MistView(context)
         container.addView(marks, FrameLayout.LayoutParams(MATCH, MATCH))
+        container.addView(flow, FrameLayout.LayoutParams(MATCH, MATCH))
         windowManager.addView(container, layerParams())
         layer = container
         highlight = marks
+        mist = flow
     }
 
     private fun hideLayer() {
         card?.let { windowManager.removeView(it) }
         card = null
         highlight = null
+        mist?.clear()
+        mist = null
         layer?.let { windowManager.removeView(it) }
         layer = null
         hovered = null
@@ -475,6 +481,9 @@ class HoverController(
         /** The lift is worth saying once a drag, not on every frame of it. */
         private var lifted = false
 
+        /** Whether the current has been struck up out of the mark yet, this gesture. */
+        private var formed = false
+
         override fun onTouchEvent(event: MotionEvent): Boolean {
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
@@ -487,6 +496,7 @@ class HoverController(
                     dragging = false
                     longPressed = false
                     lifted = false
+                    formed = false
                     active = true
                     postDelayed(longPress, ViewConfiguration.getLongPressTimeout().toLong())
                     beginDrag()
@@ -507,16 +517,20 @@ class HoverController(
                     Journal.note(
                         "circle released, dragged=" + dragging + " longPressed=" + longPressed
                     )
-                    highlight?.stopAiming()
                     removeCallbacks(longPress)
                     active = false
+                    highlight?.mark(null)
                     // A press that went nowhere puts the circle away rather than leaving a
                     // card sitting over the conversation.
                     if (!dragging && !longPressed) {
                         closeInput()
                         hideLayer()
                     } else if (dragging) {
-                        park()
+                        // The current falls back into the mark where the mark comes to rest,
+                        // and the mark reappears only once it has: no disc slides home.
+                        val home = park()
+                        mist?.onDissolved = { masked = false }
+                        mist?.dissolve(home.x.toFloat(), home.y.toFloat())
                     }
                 }
             }
@@ -528,7 +542,7 @@ class HoverController(
          * being read is not left with a disc sitting in the middle of it. The card and the
          * mark stay where they are; only the handle moves.
          */
-        fun park() {
+        fun park(): Point {
             val screen = screenSize()
             val margin = (16 * density).toInt()
             val target = if (bubbleX + width / 2 < screen.width() / 2) {
@@ -537,16 +551,18 @@ class HoverController(
                 screen.width() - width - margin
             }
             val from = bubbleX
+            val restY = bubbleY.coerceIn(0, screen.height() - height)
             ValueAnimator.ofInt(from, target).apply {
                 duration = PARK_MS
                 addUpdateListener {
                     if (!isAttachedToWindow) return@addUpdateListener
                     bubbleX = it.animatedValue as Int
-                    bubbleY = bubbleY.coerceIn(0, screen.height() - height)
+                    bubbleY = restY
                     windowManager.updateViewLayout(this@BubbleView, bubbleParams(width))
                 }
                 start()
             }
+            return Point(target + width / 2, restY + height / 2)
         }
 
         /**
@@ -575,7 +591,13 @@ class HoverController(
             bubbleY = (event.rawY - radius).toInt()
             windowManager.updateViewLayout(this, bubbleParams(size))
             val aimY = event.rawY - lift
-            highlight?.aim(event.rawX, aimY, radius)
+            if (!formed) {
+                formed = true
+                masked = true
+                mist?.form(event.rawX, event.rawY, event.rawX, aimY, radius)
+            } else {
+                mist?.follow(event.rawX, event.rawY, event.rawX, aimY, radius)
+            }
             hoverAt(event.rawX.toInt(), aimY.toInt())
         }
     }
