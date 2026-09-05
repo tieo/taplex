@@ -46,7 +46,20 @@ object DebugState {
         }
     }
 
-    fun json(): String = last.toString(2)
+    /** The last few arming decisions, since the circle not appearing leaves no other trace. */
+    private val follows = ArrayDeque<String>()
+
+    @Synchronized
+    fun followed(fromEvent: String?, front: String?, wanted: String) {
+        follows.addLast("event=" + fromEvent + " front=" + front + " wanted=" + wanted)
+        while (follows.size > 40) follows.removeFirst()
+    }
+
+    @Synchronized
+    fun json(): String =
+        JSONObject(last.toString())
+            .put("follows", JSONArray(follows.toList()))
+            .toString(2)
 }
 
 /**

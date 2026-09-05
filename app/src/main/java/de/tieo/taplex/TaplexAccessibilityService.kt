@@ -63,19 +63,28 @@ class TaplexAccessibilityService : AccessibilityService() {
      */
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
-        follow()
+        follow(event.packageName?.toString())
     }
 
-    /** Puts the circle up if the app it belongs to is in front, and takes it away if not. */
-    private fun follow() {
+    /**
+     * Puts the circle up if the app it belongs to is in front, and takes it away if not.
+     *
+     * The window that just changed is the better answer where there is one: asking the
+     * system which window is active during a transition returns whatever is passing
+     * through, a launcher or a picker, and the app being opened is named by the event
+     * itself. Anything of the system's own, and anything of Taplex's, decides nothing.
+     */
+    private fun follow(fromEvent: String? = null) {
         val prefs = Prefs(this)
         if (!prefs.hoverEnabled || !Settings.canDrawOverlays(this)) {
             hover?.disarm()
             return
         }
-        val front = frontApp()
+        val front = fromEvent?.takeIf { it !in SYSTEM_WINDOWS && it != packageName }
+            ?: frontApp()
+        DebugState.followed(fromEvent, front, prefs.hoverPackage)
         if (BuildConfig.DEBUG) {
-            Log.d("Taplex", "front=" + front + " wanted=" + prefs.hoverPackage)
+            Log.d("Taplex", "event=" + fromEvent + " front=" + front + " wanted=" + prefs.hoverPackage)
         }
         if (front == null || front == packageName) return
         if (front == prefs.hoverPackage) hoverController().arm() else hover?.disarm()
