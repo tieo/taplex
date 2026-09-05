@@ -42,7 +42,11 @@ class Lookup(private val context: Context) {
 
     /** Identifies the language of what is on screen and remembers it for later lookups. */
     suspend fun identify(prose: String): String? {
-        sourceLanguage = translator.identify(prose, prefs.sourceLanguage)
+        val installed = Dictionary.installed(context)
+            .filter { it.first == glossLanguage }
+            .map { it.second }
+            .toSet()
+        sourceLanguage = translator.identify(prose, prefs.sourceLanguage, installed)
         return sourceLanguage
     }
 

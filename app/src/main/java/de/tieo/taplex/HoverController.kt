@@ -40,7 +40,8 @@ import kotlinx.coroutines.withContext
 class HoverController(
     private val context: Context,
     private val windowManager: WindowManager,
-    private val readWords: suspend () -> Recognised
+    private val readWords: suspend () -> Recognised,
+    private val readBetterWords: suspend () -> Recognised?
 ) {
 
     private val lookup = Lookup(context)
@@ -130,24 +131,38 @@ class HoverController(
         refresh()
     }
 
-    /** Reads the screen, and answers again for wherever the circle is now pointing. */
+    /**
+     * Reads the screen, and answers again for wherever the circle is now pointing.
+     *
+     * What the apps report themselves arrives in a few milliseconds and is answered from
+     * straight away. Where that does not carry the screen, a recognised picture follows a
+     * second or two later and replaces it; a drag that started in the meantime was not
+     * left waiting for it.
+     */
     private fun refresh() {
         reading = scope.launch {
             val started = System.currentTimeMillis()
-            val found = readWords()
-            words = found.words
-            Journal.note(
-                "read " + words.size + " words in " +
-                    (System.currentTimeMillis() - started) + "ms"
-            )
-            // The finger has moved on while this was being read; what it is over now is
-            // answered with the words that just arrived.
-            aim?.let { point ->
-                hovered = null
-                hoverAt(point.x, point.y)
-            }
-            lookup.identify(found.prose())
+            val reported = readWords()
+            accept(reported, "reported", started)
+            val better = readBetterWords() ?: return@launch
+            accept(better, "recognised", started)
         }
+    }
+
+    private fun accept(found: Recognised, how: String, started: Long) {
+        if (found.words.isEmpty()) return
+        words = found.words
+        Journal.note(
+            "read " + words.size + " words (" + how + ") in " +
+                (System.currentTimeMillis() - started) + "ms"
+        )
+        // The finger has moved on while this was being read; what it is over now is
+        // answered with the words that just arrived.
+        aim?.let { point ->
+            hovered = null
+            hoverAt(point.x, point.y)
+        }
+        scope.launch { lookup.identify(found.prose()) }
     }
 
     /** The word under the circle, or the nearest one a finger's width away. */

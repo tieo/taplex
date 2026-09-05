@@ -124,7 +124,14 @@ class TaplexAccessibilityService : AccessibilityService() {
         hover ?: HoverController(
             context = this,
             windowManager = windowManager,
-            readWords = { wordsOnScreen() }
+            // Two readings, not one: what the apps report comes back at once so a drag has
+            // something to answer with, and the slow recognised one replaces it only where
+            // the first does not carry the screen.
+            readWords = { wordsReported().found },
+            readBetterWords = {
+                val reading = wordsReported()
+                if (carries(reading)) null else wordsRecognised()
+            }
         ).also { hover = it }
 
     /**
@@ -137,15 +144,54 @@ class TaplexAccessibilityService : AccessibilityService() {
      * screenful of text and no word anyone can point at, so that screen is read as a
      * picture instead.
      */
-    private suspend fun wordsOnScreen(): Recognised {
-        val reading = NodeWords.read(rootInActiveWindow, packageName, screenBounds())
-        val reported = reading.found.words.size >= MIN_REPORTED_WORDS &&
+    /**
+     * What the apps on screen say themselves. Fast, and empty or thin on a browser, which
+     * reports whole paragraphs and no position for any word inside them.
+     */
+    private fun wordsReported(): NodeWords.Reading =
+        NodeWords.read(rootInActiveWindow, packageName, screenBounds())
+
+    /** Whether that reading carries the screen, or is chrome with the text still missing. */
+    private fun carries(reading: NodeWords.Reading): Boolean =
+        reading.found.words.size >= MIN_REPORTED_WORDS &&
             reading.resolvedCharacters >= reading.unresolvedCharacters
-        if (reported) return reading.found
-        val frame = frame() ?: return reading.found
-        val recognised = runCatching { Ocr.run(frame) }.getOrNull()
+
+    /**
+     * The screen read as a picture, for the screens whose text nobody reports. Recognising
+     * a phone screen at full size takes seconds, and the words wanted are the ones a finger
+     * can hit, so the picture is halved first: a word is still tens of pixels across, and
+     * the boxes scale back up exactly.
+     */
+    private suspend fun wordsRecognised(): Recognised? {
+        val beforePicture = System.currentTimeMillis()
+        val frame = frame() ?: return null
+        val pictured = System.currentTimeMillis()
+        val small = Bitmap.createScaledBitmap(frame, frame.width / 2, frame.height / 2, true)
         frame.recycle()
-        return recognised ?: reading.found
+        val found = runCatching { Ocr.run(small) }.getOrNull()
+        Journal.note(
+            "picture took " + (pictured - beforePicture) + "ms, recognising it " +
+                (System.currentTimeMillis() - pictured) + "ms"
+        )
+        small.recycle()
+        return found?.let { recognised ->
+            Recognised(
+                recognised.words.map { word ->
+                    Word(
+                        word.text,
+                        Rect(
+                            word.bounds.left * 2,
+                            word.bounds.top * 2,
+                            word.bounds.right * 2,
+                            word.bounds.bottom * 2
+                        ),
+                        word.line
+                    )
+                },
+                recognised.fullText,
+                recognised.blocks
+            )
+        }
     }
 
     /** The screen as a picture, or null when the system will not hand one over. */

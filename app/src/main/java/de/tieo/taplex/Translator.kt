@@ -33,21 +33,42 @@ class WordTranslator {
      * Identifies the source language from [context] rather than from the tapped word alone:
      * a single word is often ambiguous, a screenful of text rarely is.
      */
-    suspend fun identify(context: String, configured: String): String? {
+    /**
+     * Identifies the source language from [context] rather than from the tapped word alone:
+     * a single word is often ambiguous, a screenful of text rarely is.
+     *
+     * [answerable] is the languages a dictionary exists for. A screen is never only the
+     * text on it, and the chrome around a page is enough to make a confident guess at a
+     * language nobody here can answer: a Spanish article read in a browser came back
+     * Polish, which sent the lookup to a dictionary that does not exist while the Spanish
+     * one sat installed. So the best candidate that can actually be answered wins, and the
+     * outright best only when none of them can.
+     */
+    suspend fun identify(
+        context: String,
+        configured: String,
+        answerable: Set<String> = emptySet()
+    ): String? {
         if (configured != Prefs.AUTO) return configured
         val candidates = try {
             languageId.identifyPossibleLanguages(context).await()
         } catch (e: Exception) {
-            Log.w(TAG, "language id failed", e)
+            Journal.failed("identifying the language", e)
             return null
         }
-        Log.d(TAG, "candidates=" + candidates.joinToString { it.languageTag + ":" + it.confidence })
-        return candidates
+        val ranked = candidates
             .sortedByDescending { it.confidence }
-            .firstNotNullOfOrNull { candidate ->
+            .mapNotNull { candidate ->
                 if (candidate.languageTag == "und") null
                 else TranslateLanguage.fromLanguageTag(candidate.languageTag)
             }
+        val answered = ranked.firstOrNull { it in answerable }
+        Journal.note(
+            "language " + candidates.take(3).joinToString {
+                it.languageTag + ":" + "%.2f".format(it.confidence)
+            } + " -> " + (answered ?: ranked.firstOrNull())
+        )
+        return answered ?: ranked.firstOrNull()
     }
 
     suspend fun translate(word: String, source: String, target: String, allowDownload: Boolean): Result {
