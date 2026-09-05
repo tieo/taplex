@@ -82,12 +82,15 @@ class TaplexAccessibilityService : AccessibilityService() {
         }
         val front = fromEvent?.takeIf { it !in SYSTEM_WINDOWS && it != packageName }
             ?: frontApp()
-        DebugState.followed(fromEvent, front, prefs.hoverPackage)
+        DebugState.followed(fromEvent, front, prefs.hoverPackages)
         if (BuildConfig.DEBUG) {
-            Log.d("Taplex", "event=" + fromEvent + " front=" + front + " wanted=" + prefs.hoverPackage)
+            Log.d(
+                "Taplex",
+                "event=" + fromEvent + " front=" + front + " wanted=" + prefs.hoverPackages
+            )
         }
         if (front == null || front == packageName) return
-        if (front == prefs.hoverPackage) hoverController().arm() else hover?.disarm()
+        if (front in prefs.hoverPackages) hoverController().arm() else hover?.disarm()
     }
 
     /**

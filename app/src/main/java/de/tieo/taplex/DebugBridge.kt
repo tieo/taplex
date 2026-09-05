@@ -50,7 +50,7 @@ object DebugState {
     private val follows = ArrayDeque<String>()
 
     @Synchronized
-    fun followed(fromEvent: String?, front: String?, wanted: String) {
+    fun followed(fromEvent: String?, front: String?, wanted: Set<String>) {
         follows.addLast("event=" + fromEvent + " front=" + front + " wanted=" + wanted)
         while (follows.size > 40) follows.removeFirst()
     }
@@ -94,7 +94,7 @@ class DebugBridge(
                 ACTION_HOVER -> {
                     val target = intent.getStringExtra("package") ?: return
                     Prefs(context).apply {
-                        hoverPackage = target
+                        hoverPackages = target.split(",").map { it.trim() }.toSet()
                         hoverEnabled = true
                     }
                     onHoverPackage(target)

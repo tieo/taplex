@@ -21,22 +21,28 @@ class Prefs(context: Context) {
         set(value) = sp.edit().putBoolean(KEY_HOVER, value).apply()
 
     /**
-     * The app the circle belongs to. A conversation happens in one app at a time, and a
-     * bubble sitting over every app is in the way of all of them.
+     * The apps the circle belongs to. A conversation happens in one app at a time and a
+     * bubble sitting over every app is in the way of all of them, but one app is not one
+     * package: the Gemini icon on a Pixel opens the Google app's assistant surface, and
+     * the Gemini app's own entry hands off to it, so both packages are the same
+     * conversation to the person having it.
      */
-    var hoverPackage: String
-        get() = sp.getString(KEY_HOVER_PACKAGE, GEMINI) ?: GEMINI
-        set(value) = sp.edit().putString(KEY_HOVER_PACKAGE, value).apply()
+    var hoverPackages: Set<String>
+        get() = sp.getStringSet(KEY_HOVER_PACKAGES, null) ?: GEMINI
+        set(value) = sp.edit().putStringSet(KEY_HOVER_PACKAGES, value).apply()
 
     companion object {
         const val AUTO = "auto"
 
-        /** The Gemini app, which is the conversation this was built for. */
-        const val GEMINI = "com.google.android.apps.bard"
+        /** Where Gemini is: its own app, and the Google app surface its icon opens. */
+        val GEMINI = setOf(
+            "com.google.android.apps.bard",
+            "com.google.android.googlequicksearchbox"
+        )
 
         private const val KEY_SOURCE = "source"
         private const val KEY_TARGET = "target"
         private const val KEY_HOVER = "hover"
-        private const val KEY_HOVER_PACKAGE = "hoverPackage"
+        private const val KEY_HOVER_PACKAGES = "hoverPackages"
     }
 }
