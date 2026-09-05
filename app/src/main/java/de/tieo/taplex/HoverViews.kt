@@ -9,36 +9,24 @@ import android.graphics.RectF
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
+import androidx.core.content.ContextCompat
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 
 /**
- * The circle itself: the handle a finger drags, and the thing that says where the lookup is
- * aimed. Drawing only, so it can be put on a page without a phone; the drag lives in
- * [HoverController].
+ * What sits at the edge of the conversation waiting to be dragged: the app's own mark.
+ *
+ * It is the app rather than a plain dot because it is the app: a nameless circle over
+ * someone's chat is a thing they have to remember the meaning of. The aiming circle is a
+ * different thing entirely, drawn by [HoverHighlightView] and only while a finger is down.
  */
 open class HoverBubbleView(context: Context) : View(context) {
 
-    private val density = context.resources.displayMetrics.density
+    private val mark = ContextCompat.getDrawable(context, R.drawable.ic_launcher_foreground)
 
-    private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-    private val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeWidth = 2 * density
-    }
-
-    /** The dot at the centre: what the circle is aimed at is a point, not the whole disc. */
-    private val pip = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.FILL
-        color = Color.argb(235, 255, 255, 255)
-    }
-
-    /**
-     * Whether a finger is on it. Parked it stays out of the way of the conversation it sits
-     * over; dragging it is solid, because then it is the thing being aimed.
-     */
+    /** Whether a finger is on it: parked it stays quieter than the conversation under it. */
     var active: Boolean = false
         set(value) {
             if (field == value) return
@@ -47,43 +35,71 @@ open class HoverBubbleView(context: Context) : View(context) {
         }
 
     override fun onDraw(canvas: Canvas) {
-        val radius = width / 2f - ring.strokeWidth * 1.5f
-        // Barely filled on purpose: the circle is aimed at the word under its middle, and a
-        // disc would hide the very word it is pointing at.
-        fill.color = if (active) GLASS_ACTIVE else GLASS_PARKED
-        ring.color = if (active) RIM_ACTIVE else RIM_PARKED
-        ring.strokeWidth = if (active) 3 * density else 2 * density
-        canvas.drawCircle(width / 2f, height / 2f, radius, fill)
-        canvas.drawCircle(width / 2f, height / 2f, radius, ring)
-        pip.color = if (active) RIM_ACTIVE else RIM_PARKED
-        canvas.drawCircle(width / 2f, height / 2f, if (active) 3 * density else 2 * density, pip)
-    }
-
-    private companion object {
-        val GLASS_PARKED = Color.argb(40, 31, 111, 235)
-        val GLASS_ACTIVE = Color.argb(60, 31, 111, 235)
-        val RIM_PARKED = Color.argb(150, 31, 111, 235)
-        val RIM_ACTIVE = Color.argb(255, 31, 111, 235)
+        val icon = mark ?: return
+        icon.setBounds(0, 0, width, height)
+        icon.alpha = if (active) 255 else 200
+        icon.draw(canvas)
     }
 }
 
-/** The word the circle is over, marked so it is clear which one is being answered. */
+/**
+ * The word being answered, and the circle aimed at it.
+ *
+ * The circle belongs here rather than to the thing being dragged: it exists only while a
+ * finger is down, it sits well above that finger, and it must not take a touch. Drawing it
+ * in the layer that already covers the screen keeps it out of the way of both.
+ */
 class HoverHighlightView(context: Context) : View(context) {
+
+    private val density = context.resources.displayMetrics.density
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
         color = Color.argb(90, 31, 111, 235)
     }
+    private val glass = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        color = Color.argb(52, 31, 111, 235)
+    }
+    private val rim = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 3 * density
+        color = Color.argb(255, 31, 111, 235)
+    }
+    private val pip = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        color = Color.argb(255, 31, 111, 235)
+    }
+
     private var marked: Rect? = null
+    private var aimX = 0f
+    private var aimY = 0f
+    private var aimRadius = 0f
 
     fun mark(bounds: Rect?) {
         marked = bounds
         invalidate()
     }
 
+    /** Where the circle is, or nothing at all once the finger is gone. */
+    fun aim(x: Float, y: Float, radius: Float) {
+        aimX = x
+        aimY = y
+        aimRadius = radius
+        invalidate()
+    }
+
+    fun stopAiming() {
+        aimRadius = 0f
+        invalidate()
+    }
+
     override fun onDraw(canvas: Canvas) {
-        val bounds = marked ?: return
-        canvas.drawRoundRect(RectF(bounds), 6f, 6f, paint)
+        marked?.let { canvas.drawRoundRect(RectF(it), 6f, 6f, paint) }
+        if (aimRadius <= 0f) return
+        canvas.drawCircle(aimX, aimY, aimRadius - rim.strokeWidth, glass)
+        canvas.drawCircle(aimX, aimY, aimRadius - rim.strokeWidth, rim)
+        canvas.drawCircle(aimX, aimY, 3 * density, pip)
     }
 }
 

@@ -65,6 +65,9 @@ class HoverController(
     /** Where the circle is pointing, kept so a late reading can still answer it. */
     private var aim: Point? = null
 
+    /** How big the circle around that point is, which the card has to clear. */
+    private var aimRadius = 0
+
     /** Where the bubble sits when it is put up, and where it stays when a drag ends. */
     private var bubbleX = -1
     private var bubbleY = -1
@@ -174,6 +177,7 @@ class HoverController(
 
     private fun hoverAt(x: Int, y: Int) {
         aim = Point(x, y)
+        aimRadius = ((BUBBLE_DP * density) / 2f).toInt()
         val word = wordAt(x, y)
         if (word === hovered) return
         hovered = word
@@ -278,7 +282,6 @@ class HoverController(
      */
     private fun place(view: EntryView, word: Rect) {
         val screen = screenSize()
-        val size = (BUBBLE_DP * density).toInt()
         val margin = (8 * density).toInt()
         val maxHeight = (screen.height() * 0.45f).toInt()
         val maxX = (screen.width() - (screen.width() * 0.82f).toInt() - margin)
@@ -287,10 +290,13 @@ class HoverController(
 
         // Everything from the top of the circle down is the word, the circle over it, or
         // the hand below that, so the card hangs by its bottom edge from there. Near the
-        // top of the screen there is no room for that and it goes under the hand instead,
-        // which is worth less than an answer that runs off the display.
-        val clearOf = minOf(word.top, bubbleY) - margin
-        val under = maxOf(word.bottom, bubbleY + size) + margin
+        // top of the screen there is no room for that and it goes under instead, which is
+        // worth less than an answer that runs off the display.
+        val circle = aim
+        val circleTop = circle?.let { it.y - aimRadius } ?: word.top
+        val circleBottom = circle?.let { it.y + aimRadius } ?: word.bottom
+        val clearOf = minOf(word.top, circleTop) - margin
+        val under = maxOf(word.bottom, circleBottom) + margin
         val roomAbove = clearOf - margin
         val roomBelow = screen.height() - under - margin
         val goesAbove = roomAbove >= roomBelow
@@ -486,6 +492,7 @@ class HoverController(
                     Journal.note(
                         "circle released, dragged=" + dragging + " longPressed=" + longPressed
                     )
+                    highlight?.stopAiming()
                     removeCallbacks(longPress)
                     active = false
                     // A press that went nowhere puts the circle away rather than leaving a
@@ -528,28 +535,33 @@ class HoverController(
         }
 
         /**
-         * The circle rides clear of the finger holding it, by as much as that finger
-         * actually covers.
+         * The mark stays under the finger that grabbed it, and the circle it aims with
+         * rides clear above.
          *
-         * The screen reports the contact patch of the touch, so the lift is the half of it
-         * that reaches upwards, plus the circle's own radius, plus half a radius so the
-         * word under the circle is outside the hand rather than at the edge of it. A
-         * number picked by hand would be wrong on the next screen density or the next
-         * finger.
+         * Moving the mark itself above the finger would teleport it out from under the
+         * thumb the moment a drag began, since it was picked up where it was parked. So the
+         * thing being held stays held, and the thing doing the looking is drawn where it
+         * can be seen: half the contact patch the screen reports for this touch, plus the
+         * circle's own radius, plus a quarter more, so the word is outside the hand rather
+         * than at the edge of it. A number picked by hand would be wrong on the next screen
+         * or the next finger.
          */
         private fun followFinger(event: MotionEvent) {
             val size = width
             val covered = event.touchMajor.takeIf { it > 1f }
                 ?: (FINGER_INCHES * context.resources.displayMetrics.ydpi)
-            val lift = covered / 2f + size / 2f + size * 0.25f
+            val radius = size / 2f
+            val lift = covered / 2f + radius + size * 0.25f
             if (!lifted) {
                 lifted = true
                 Journal.note("lift is " + lift.toInt() + "px for a finger of " + covered.toInt() + "px")
             }
-            bubbleX = (event.rawX - size / 2f).toInt()
-            bubbleY = (event.rawY - lift - size / 2f).toInt()
+            bubbleX = (event.rawX - radius).toInt()
+            bubbleY = (event.rawY - radius).toInt()
             windowManager.updateViewLayout(this, bubbleParams(size))
-            hoverAt(bubbleX + size / 2, bubbleY + size / 2)
+            val aimY = event.rawY - lift
+            highlight?.aim(event.rawX, aimY, radius)
+            hoverAt(event.rawX.toInt(), aimY.toInt())
         }
     }
 
