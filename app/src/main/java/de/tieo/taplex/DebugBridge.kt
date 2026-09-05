@@ -87,6 +87,11 @@ class DebugBridge(
                 ACTION_DUMP -> {
                     val dir = context.getExternalFilesDir(null) ?: return
                     File(dir, "debug_state.json").writeText(DebugState.json())
+                    // The journal is the useful half: what happened, in order, including
+                    // the runs where nothing was looked up because nothing came up.
+                    File(dir, "journal.log").writeText(
+                        Journal.recent().joinToString("\n", postfix = "\n")
+                    )
                 }
                 ACTION_LOOKUP -> onLookup()
                 // The circle follows one app, and the app it was built for is not on an

@@ -42,6 +42,8 @@ class TaplexAccessibilityService : AccessibilityService() {
     }
 
     override fun onServiceConnected() {
+        Journal.open(this)
+        Journal.note("service connected")
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         accessibilityButtonController.registerAccessibilityButtonCallback(buttonCallback)
         debug.register(this)
@@ -77,20 +79,30 @@ class TaplexAccessibilityService : AccessibilityService() {
     private fun follow(fromEvent: String? = null) {
         val prefs = Prefs(this)
         if (!prefs.hoverEnabled || !Settings.canDrawOverlays(this)) {
+            if (hover?.isUp == true) {
+                Journal.note(
+                    "follow: off (enabled=" + prefs.hoverEnabled +
+                        " overlay=" + Settings.canDrawOverlays(this) + "), circle away"
+                )
+            }
             hover?.disarm()
             return
         }
         val front = fromEvent?.takeIf { it !in SYSTEM_WINDOWS && it != packageName }
             ?: frontApp()
         DebugState.followed(fromEvent, front, prefs.hoverPackages)
-        if (BuildConfig.DEBUG) {
-            Log.d(
-                "Taplex",
-                "event=" + fromEvent + " front=" + front + " wanted=" + prefs.hoverPackages
-            )
+        if (front == null || front == packageName) {
+            Journal.note("follow: event=$fromEvent front=$front, left as it was")
+            return
         }
-        if (front == null || front == packageName) return
-        if (front in prefs.hoverPackages) hoverController().arm() else hover?.disarm()
+        if (front in prefs.hoverPackages) {
+            val already = hover?.isUp == true
+            hoverController().arm()
+            if (!already) Journal.note("follow: $front is followed, circle up")
+        } else {
+            if (hover?.isUp == true) Journal.note("follow: $front is not followed, circle away")
+            hover?.disarm()
+        }
     }
 
     /**
@@ -148,6 +160,7 @@ class TaplexAccessibilityService : AccessibilityService() {
     override fun onInterrupt() = Unit
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {
+        Journal.note("service unbound, taking the circle with it")
         running = null
         hover?.close()
         hover = null

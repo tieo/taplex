@@ -82,11 +82,14 @@ class HoverController(
             bubbleX = screen.width() - size - (16 * density).toInt()
             bubbleY = screen.height() / 2
         }
-        windowManager.addView(view, bubbleParams(size))
+        runCatching { windowManager.addView(view, bubbleParams(size)) }
+            .onFailure { Journal.failed("putting the circle up", it) }
+            .onSuccess { Journal.note("circle up at $bubbleX,$bubbleY") }
         bubble = view
     }
 
     fun disarm() {
+        if (bubble != null) Journal.note("circle away")
         reading?.cancel()
         pending?.cancel()
         asked?.cancel()
@@ -130,10 +133,9 @@ class HoverController(
             val started = System.currentTimeMillis()
             val found = readWords()
             words = found.words
-            Log.d(
-                "Taplex",
-                "hover read words=" + words.size +
-                    " in " + (System.currentTimeMillis() - started) + "ms"
+            Journal.note(
+                "read " + words.size + " words in " +
+                    (System.currentTimeMillis() - started) + "ms"
             )
             // The finger has moved on while this was being read; what it is over now is
             // answered with the words that just arrived.
@@ -184,6 +186,10 @@ class HoverController(
         showWaiting(word)
         pending = scope.launch {
             val answer = lookup.explain(word.text.stripped(), word.line)
+            Journal.note(
+                "answered a word of " + word.text.length + " letters with " +
+                    answer.entries.size + " entries"
+            )
             // The finger moves on while a translation is being fetched; an answer that
             // arrives for a word already left behind is not shown.
             if (hovered === word) show(answer, word.bounds)
@@ -287,17 +293,31 @@ class HoverController(
         }
     }
 
+    /**
+     * Laid out in screen coordinates on purpose. Without that the position is measured
+     * inside the system's insets, and since the point the circle is aimed at comes from
+     * this position while the words are in screen coordinates, the two spaces have to be
+     * the same one or the circle answers a word other than the one under it.
+     */
     private fun bubbleParams(size: Int) = WindowManager.LayoutParams(
         size,
         size,
         CaptureService.overlayType(),
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
         PixelFormat.TRANSLUCENT
     ).apply {
         gravity = Gravity.TOP or Gravity.START
         x = bubbleX
         y = bubbleY
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            layoutInDisplayCutoutMode =
+                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            fitInsetsTypes = 0
+        }
     }
 
     private fun layerParams() = WindowManager.LayoutParams(
@@ -421,6 +441,7 @@ class HoverController(
         override fun onTouchEvent(event: MotionEvent): Boolean {
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
+                    Journal.note("circle touched at " + event.rawX.toInt() + "," + event.rawY.toInt())
                     downX = event.rawX
                     downY = event.rawY
                     dragging = false
@@ -442,6 +463,9 @@ class HoverController(
                 }
 
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    Journal.note(
+                        "circle released, dragged=" + dragging + " longPressed=" + longPressed
+                    )
                     removeCallbacks(longPress)
                     active = false
                     // A press that went nowhere puts the circle away rather than leaving a
@@ -503,8 +527,12 @@ class HoverController(
         /** The circle's width. */
         const val BUBBLE_DP = 40f
 
-        /** How far above the finger the circle rides: about 100 px on a 3x screen. */
-        const val LIFT_DP = 34f
+        /**
+         * How far above the finger the circle rides. A hand covers more than the word it
+         * is pointing at: the line under the fingertip, the line below it, and the card
+         * that opens there. Far enough up that the whole answer stays in sight.
+         */
+        const val LIFT_DP = 64f
 
         /** How far off a word the circle may be and still mean it. */
         const val SLACK_DP = 12f
