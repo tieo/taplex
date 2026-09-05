@@ -252,7 +252,7 @@ class HoverController(
         return view
     }
 
-    private fun cardParams(x: Int, y: Int) = WindowManager.LayoutParams(
+    private fun cardParams(x: Int, y: Int, fromBottom: Boolean = false) = WindowManager.LayoutParams(
         (screenSize().width() * 0.82f).toInt(),
         WRAP,
         CaptureService.overlayType(),
@@ -260,45 +260,58 @@ class HoverController(
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
         PixelFormat.TRANSLUCENT
     ).apply {
-        gravity = Gravity.TOP or Gravity.START
+        // Anchored by its bottom edge when it goes above something: the card's height is
+        // its content's, and a card positioned by its top grows down over the very thing
+        // it was meant to clear.
+        gravity = (if (fromBottom) Gravity.BOTTOM else Gravity.TOP) or Gravity.START
         this.x = x
         this.y = y
     }
 
     /**
-     * The card sits under the word it explains, and above it when the word is low enough
-     * that a card below would be under the hand holding the circle.
+     * The card sits above the circle, not merely above the word.
+     *
+     * The circle covers the word it is aimed at and the finger holding it is below that,
+     * so everything from the top of the circle downwards is either the answer's subject or
+     * the hand: measuring from the word alone puts the card over the circle. It goes below
+     * only when there is no room above.
      */
     private fun place(view: EntryView, word: Rect) {
         val screen = screenSize()
+        val size = (BUBBLE_DP * density).toInt()
+        val margin = (8 * density).toInt()
+        val maxHeight = (screen.height() * 0.45f).toInt()
+        val maxX = (screen.width() - (screen.width() * 0.82f).toInt() - margin)
+            .coerceAtLeast(margin)
+        val x = word.left.coerceIn(margin, maxX)
+
+        // Everything from the top of the circle down is the word, the circle over it, or
+        // the hand below that, so the card hangs by its bottom edge from there. Near the
+        // top of the screen there is no room for that and it goes under the hand instead,
+        // which is worth less than an answer that runs off the display.
+        val clearOf = minOf(word.top, bubbleY) - margin
+        val under = maxOf(word.bottom, bubbleY + size) + margin
+        val roomAbove = clearOf - margin
+        val roomBelow = screen.height() - under - margin
+        val goesAbove = roomAbove >= roomBelow
+        val room = (if (goesAbove) roomAbove else roomBelow).coerceAtMost(maxHeight)
+
+        val params = if (goesAbove) {
+            cardParams(x, screen.height() - clearOf, fromBottom = true)
+        } else {
+            cardParams(x, under)
+        }
+        windowManager.updateViewLayout(view, params)
         view.post {
-            val margin = (8 * density).toInt()
-            val maxHeight = (screen.height() * 0.45f).toInt()
-            val height = view.height.coerceAtMost(maxHeight)
-            val maxX = (screen.width() - view.width - margin).coerceAtLeast(margin)
-            val below = word.bottom + margin
-            val above = word.top - height - margin
-            val top = if (below + height > screen.height() - margin && above > margin) {
-                above
-            } else {
-                below
+            // A card taller than the space it was given scrolls inside it rather than
+            // reaching past the edge of the screen.
+            if (view.height > room) {
+                windowManager.updateViewLayout(view, params.apply { height = room })
             }
-            val params = cardParams(
-                word.left.coerceIn(margin, maxX),
-                top.coerceIn(margin, (screen.height() - height - margin).coerceAtLeast(margin))
-            )
-            if (view.height > maxHeight) params.height = maxHeight
-            windowManager.updateViewLayout(view, params)
             view.scrollTo(0, 0)
         }
     }
 
-    /**
-     * Laid out in screen coordinates on purpose. Without that the position is measured
-     * inside the system's insets, and since the point the circle is aimed at comes from
-     * this position while the words are in screen coordinates, the two spaces have to be
-     * the same one or the circle answers a word other than the one under it.
-     */
     private fun bubbleParams(size: Int) = WindowManager.LayoutParams(
         size,
         size,
@@ -438,14 +451,21 @@ class HoverController(
         private var dragging = false
         private var longPressed = false
 
+        /** The lift is worth saying once a drag, not on every frame of it. */
+        private var lifted = false
+
         override fun onTouchEvent(event: MotionEvent): Boolean {
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
-                    Journal.note("circle touched at " + event.rawX.toInt() + "," + event.rawY.toInt())
+                    Journal.note(
+                        "circle touched at " + event.rawX.toInt() + "," + event.rawY.toInt() +
+                            ", finger covers " + event.touchMajor.toInt() + "px"
+                    )
                     downX = event.rawX
                     downY = event.rawY
                     dragging = false
                     longPressed = false
+                    lifted = false
                     active = true
                     postDelayed(longPress, ViewConfiguration.getLongPressTimeout().toLong())
                     beginDrag()
@@ -458,7 +478,7 @@ class HoverController(
                         dragging = true
                         removeCallbacks(longPress)
                     }
-                    if (dragging && !longPressed) followFinger(event.rawX, event.rawY)
+                    if (dragging && !longPressed) followFinger(event)
                     if (longPressed) active = false
                 }
 
@@ -508,13 +528,26 @@ class HoverController(
         }
 
         /**
-         * The circle rides above the finger, since a fingertip covers about a word: the
-         * word being looked up has to be one that can still be read while pointing at it.
+         * The circle rides clear of the finger holding it, by as much as that finger
+         * actually covers.
+         *
+         * The screen reports the contact patch of the touch, so the lift is the half of it
+         * that reaches upwards, plus the circle's own radius, plus half a radius so the
+         * word under the circle is outside the hand rather than at the edge of it. A
+         * number picked by hand would be wrong on the next screen density or the next
+         * finger.
          */
-        private fun followFinger(rawX: Float, rawY: Float) {
+        private fun followFinger(event: MotionEvent) {
             val size = width
-            bubbleX = (rawX - size / 2f).toInt()
-            bubbleY = (rawY - LIFT_DP * density - size / 2f).toInt()
+            val covered = event.touchMajor.takeIf { it > 1f }
+                ?: (FINGER_INCHES * context.resources.displayMetrics.ydpi)
+            val lift = covered / 2f + size / 2f + size * 0.25f
+            if (!lifted) {
+                lifted = true
+                Journal.note("lift is " + lift.toInt() + "px for a finger of " + covered.toInt() + "px")
+            }
+            bubbleX = (event.rawX - size / 2f).toInt()
+            bubbleY = (event.rawY - lift - size / 2f).toInt()
             windowManager.updateViewLayout(this, bubbleParams(size))
             hoverAt(bubbleX + size / 2, bubbleY + size / 2)
         }
@@ -528,11 +561,11 @@ class HoverController(
         const val BUBBLE_DP = 40f
 
         /**
-         * How far above the finger the circle rides. A hand covers more than the word it
-         * is pointing at: the line under the fingertip, the line below it, and the card
-         * that opens there. Far enough up that the whole answer stays in sight.
+         * What a fingertip covers when the screen will not say. Touchscreens report the
+         * contact patch, and this stands in only for the ones that report nothing: a
+         * finger pad is around 11mm across, which is what this is in inches of screen.
          */
-        const val LIFT_DP = 64f
+        const val FINGER_INCHES = 0.43f
 
         /** How far off a word the circle may be and still mean it. */
         const val SLACK_DP = 12f
