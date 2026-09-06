@@ -895,10 +895,12 @@ class HoverController(
             if (!formed) {
                 formed = true
                 masked = true
-                // It starts where the hand is and is thrown up to where it is wanted, so
-                // the first thing the ball does is travel the length of the thread.
-                ballX = event.rawX
-                ballY = event.rawY
+                // It appears where it is wanted, above the finger, rather than at the
+                // finger and springing up: that spring was one frame of the circle low by
+                // the hand before it climbed. The thread still flows up to it from the
+                // finger; the ball only leashes from here on, word to word.
+                ballX = wantX
+                ballY = wantY
                 ballVx = 0f
                 ballVy = 0f
                 lastSwing = 0L
