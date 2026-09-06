@@ -225,6 +225,10 @@ open class SayInputView(context: Context) : LinearLayout(context) {
         hint = context.getString(R.string.say_hint)
         imeOptions = EditorInfo.IME_ACTION_SEARCH
         isSingleLine = true
+        // The underline and cursor match the app's blue rather than the platform's default
+        // teal, so the field looks like Taplex and not like a stray text box.
+        backgroundTintList = android.content.res.ColorStateList.valueOf(0xFF4C9AFF.toInt())
+        highlightColor = 0x554C9AFF
     }
 
     private val answer = EntryView(context).apply { visibility = GONE }
