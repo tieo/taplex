@@ -16,7 +16,7 @@
     <string name="say_no_pack">Add a dictionary first: there is no language to say it in yet.</string>
     <string name="ways_title">Ways in</string>
     <string name="tile_add">Quick settings tile</string>
-    <string name="tile_add_why">One press from any screen, no accessibility button needed</string>
+    <string name="tile_add_why">One press from any screen freezes it for a tap</string>
     <string name="hover_title">Talking practice</string>
     <string name="hover_toggle">Circle over other apps</string>
     <string name="hover_explained">Drag it over a word while you read</string>
@@ -52,11 +52,11 @@
     <string name="setup_lookup_why">Lets Taplex read the words on screen. Nothing else needs turning on.</string>
     <string name="setup_overlay">Draw over other apps</string>
     <string name="setup_overlay_why">Puts the answer over what you are reading</string>
-    <string name="ready">Ready. Press the accessibility button or the tile.</string>
+    <string name="ready">Ready. Drag the circle, or use the tile to tap a word.</string>
     <string name="ready_no_pack">Allowed. Add a dictionary and you are ready.</string>
     <string name="add">Add</string>
     <string name="pack_detail_full">%1$s entries \u00b7 %2$s</string>
-    <string name="step_arm">Press the Taplex tile in quick settings, or the accessibility button if you use one.</string>
+    <string name="step_arm">Press the Taplex tile in quick settings.</string>
     <string name="step_tap">Tap a word. Its entry opens: senses, marks, an example.</string>
     <string name="step_say">In a conversation, drag the circle. Long press it to ask for a word.</string>
     <string name="records_nothing">Nothing is recorded. Words come from the apps themselves.</string>
@@ -74,5 +74,5 @@
     <string name="delete">Delete</string>
     <string name="pack_failed">The %1$s dictionary could not be built.</string>
     <string name="how_title">How to use it</string>
-    <string name="how_body">Press the accessibility button, or the Taplex tile in quick settings, and the screen freezes with a box around every word. Tap one for its entry: what it means, in how many senses, how it is used, and a link to the full article. Tap anywhere else or press back to return. Long press the layer to come back here.\n\nNothing is recorded. The words are read from the apps on screen, and only where an app draws its text instead of reporting it does Taplex take a single screenshot to read.</string>
+    <string name="how_body">Press the Taplex tile in quick settings and the screen freezes with a box around every word. Tap one for its entry: what it means, in how many senses, how it is used, and a link to the full article. Tap anywhere else or press back to return. Long press the layer to come back here.\n\nNothing is recorded. The words are read from the apps on screen, and only where an app draws its text instead of reporting it does Taplex take a single screenshot to read.</string>
 </resources>
