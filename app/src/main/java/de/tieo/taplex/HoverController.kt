@@ -545,16 +545,22 @@ class HoverController(
                 }
                 return super.dispatchKeyEvent(event)
             }
+
+            // A tap anywhere but the field puts the field away, rather than only sending
+            // the keyboard back: the question was not asked, so nothing of it stays.
+            override fun onTouchEvent(event: MotionEvent): Boolean {
+                if (event.action == MotionEvent.ACTION_OUTSIDE) {
+                    closeInput()
+                    return true
+                }
+                return super.onTouchEvent(event)
+            }
         }
         val here = learning()
         view.askFor(Lookup.languageName(here))
         val langs = Dictionary.installed(context)
             .filter { it.first == lookup.glossLanguage }
             .map { it.second }
-        view.setLanguages(langs.map { it to Lookup.languageName(it) }, here) { picked ->
-            lookup.setLearning(picked)
-            view.askFor(Lookup.languageName(picked))
-        }
         view.onAddLanguage = {
             closeInput()
             hideLayer()
@@ -564,6 +570,10 @@ class HoverController(
                         .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                 )
             }
+        }
+        view.setLanguages(langs.map { it to Lookup.languageName(it) }, here) { picked ->
+            lookup.setLearning(picked)
+            view.askFor(Lookup.languageName(picked))
         }
         // Kept apart from the hover's own job: asking for a word and passing over one are
         // two questions, and neither should cancel the other.
@@ -590,7 +600,9 @@ class HoverController(
         MATCH,
         WRAP,
         CaptureService.overlayType(),
-        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
         PixelFormat.TRANSLUCENT
     ).apply {
         gravity = Gravity.TOP or Gravity.START
