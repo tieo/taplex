@@ -376,47 +376,28 @@ class HoverController(
      */
     private fun place(view: EntryView, word: Rect) {
         val screen = screenSize()
-        val margin = (8 * density).toInt()
-        val maxHeight = (screen.height() * 0.45f).toInt()
-        val maxX = (screen.width() - (screen.width() * 0.82f).toInt() - margin)
-            .coerceAtLeast(margin)
-        // The same place every time, and away from the hand. Following the word's own left
-        // edge moved the answer to a new column for every word, so it had to be found again
-        // each time; and the hand comes in from the side the mark rests on, so the answer
-        // goes to the other one.
-        val x = if (Prefs(context).markOnRight) margin else maxX
-
-        // Everything from the top of the circle down is the word, the circle over it, or
-        // the hand below that, so the card hangs by its bottom edge from there. Near the
-        // top of the screen there is no room for that and it goes under instead, which is
-        // worth less than an answer that runs off the display.
         val circle = aim
-        val circleTop = circle?.let { it.y - aimRadius } ?: word.top
-        val clearOf = minOf(word.top, circleTop) - margin
-        // Below is where the hand is. Everything from the word down is the circle, the
-        // finger holding it and the arm behind that, so the answer goes above whenever
-        // there is room to read it there - not merely when there is more room than below,
-        // which put it under the hand for any word in the top half of the screen. When
-        // there is no room above, it clears the hand rather than the circle.
-        val under = maxOf(word.bottom, handY + (36 * density).toInt()) + margin
-        val roomAbove = clearOf - margin
-        val roomBelow = screen.height() - under - margin
-        val goesAbove = roomAbove >= minOf(maxHeight, (READABLE_DP * density).toInt()) ||
-            roomAbove >= roomBelow
-        val room = (if (goesAbove) roomAbove else roomBelow).coerceAtMost(maxHeight)
-
-        val params = if (goesAbove) {
-            cardParams(x, screen.height() - clearOf, fromBottom = true)
+        val where = CardPlacement.decide(
+            screenWidth = screen.width(),
+            screenHeight = screen.height(),
+            wordTop = word.top,
+            wordBottom = word.bottom,
+            circleTop = circle?.let { it.y - aimRadius } ?: word.top,
+            handY = handY,
+            markOnRight = Prefs(context).markOnRight,
+            density = density,
+        )
+        val room = where.room
+        val params = if (where.above) {
+            cardParams(where.x, screen.height() - where.y, fromBottom = true)
         } else {
-            cardParams(x, under)
+            cardParams(where.x, where.y)
         }
         val was = view.layoutParams as? WindowManager.LayoutParams
         cardMove?.cancel()
         cardMove = null
-        val step = kotlin.math.abs(was?.y?.minus(params.y) ?: 0) +
-            kotlin.math.abs(was?.x?.minus(params.x) ?: 0)
         if (was != null && was.gravity == params.gravity && view.alpha > 0f &&
-            step in 1..(NEAR_DP * density).toInt()
+            CardPlacement.travels(was.x, was.y, params.x, params.y, density)
         ) {
             // The card follows the circle from word to word. Jumping there reads as a
             // second card rather than as the same one moving, and the eye loses it.
@@ -823,19 +804,6 @@ class HoverController(
          * half the contact patch and its own radius.
          */
         const val CLEARANCE = 1.1f
-
-        /**
-         * How far the answer may travel and still read as the same answer moving.
-         *
-         * Sliding it further than this is worse than putting it there at once: what the eye
-         * follows is a card coming from somewhere it never belonged - below the word, on its
-         * way up - which is exactly the flicker it was meant to avoid.
-         */
-        const val NEAR_DP = 90f
-
-        /** Enough of an answer to be worth reading, in dp: above the word is preferred to
-         *  below it down to this, because below it is the hand. */
-        const val READABLE_DP = 170f
 
         /** How hard the thread pulls the ball towards where the hand is holding it. */
         const val STIFFNESS = 260f
