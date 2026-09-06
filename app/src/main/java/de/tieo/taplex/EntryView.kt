@@ -31,6 +31,24 @@ class EntryView(context: Context) : ScrollView(context) {
 
     var onOpenArticle: (() -> Unit)? = null
 
+    /**
+     * A touch that landed anywhere but on this card.
+     *
+     * The card is a window of its own and takes no focus, so nothing about reading it ever
+     * ends it: it sat over the conversation until the mark happened to be tapped. A touch
+     * elsewhere is the reader saying they are done with the answer, and it is the same
+     * touch they were going to make anyway - it still reaches the app underneath.
+     */
+    var onTouchedAway: (() -> Unit)? = null
+
+    override fun onTouchEvent(event: android.view.MotionEvent): Boolean {
+        if (event.actionMasked == android.view.MotionEvent.ACTION_OUTSIDE) {
+            onTouchedAway?.invoke()
+            return true
+        }
+        return super.onTouchEvent(event)
+    }
+
     init {
         setBackgroundResource(R.drawable.popup_bg)
         val pad = dp(16)

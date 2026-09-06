@@ -1,5 +1,7 @@
 package de.tieo.taplex
 
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -9,6 +11,7 @@ import android.graphics.RectF
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
+import android.view.animation.DecelerateInterpolator
 import androidx.core.content.ContextCompat
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
@@ -34,11 +37,20 @@ open class HoverBubbleView(context: Context) : View(context) {
             invalidate()
         }
 
-    /** While a drag is on, the mark has become the mist; the handle draws nothing. */
+    /** While a drag is on, the mark has become the thread; the handle draws nothing. */
     var masked: Boolean = false
         set(value) {
             if (field == value) return
             field = value
+            // Coming back, it comes back into view: the thread has just drawn itself into
+            // this spot, and a mark that blinks into being there instead undoes that.
+            animate().cancel()
+            if (value) {
+                alpha = 1f
+            } else {
+                alpha = 0f
+                animate().alpha(1f).setDuration(220).start()
+            }
             invalidate()
         }
 
@@ -62,6 +74,13 @@ class HoverHighlightView(context: Context) : View(context) {
 
     private val density = context.resources.displayMetrics.density
 
+    private companion object {
+        /** How long the mark takes to appear or to go. */
+        const val FADE_MS = 130L
+        /** And to slide from the word it was on to the next one. */
+        const val SLIDE_MS = 150L
+    }
+
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
         color = Color.argb(90, 31, 111, 235)
@@ -80,14 +99,72 @@ class HoverHighlightView(context: Context) : View(context) {
         color = Color.argb(255, 31, 111, 235)
     }
 
+    /** Where the mark is drawn right now, which trails where it has been asked to be. */
+    private val shown = RectF()
     private var marked: Rect? = null
+    private var settled = false
+    private var presence = 0f
+    private var travel: ValueAnimator? = null
     private var aimX = 0f
     private var aimY = 0f
     private var aimRadius = 0f
 
+    /**
+     * The word under the circle, or none.
+     *
+     * The mark slides from the word it was on to the word it is on now, and fades rather
+     * than blinking at either end. A mark that jumps between words is read as several marks
+     * appearing, which is exactly what the eye should not be doing while it follows one.
+     */
     fun mark(bounds: Rect?) {
+        val was = RectF(shown)
+        val hadOne = settled && presence > 0f
+        travel?.cancel()
+        travel = null
         marked = bounds
-        invalidate()
+        if (bounds == null) {
+            if (!hadOne) { presence = 0f; settled = false; invalidate(); return }
+            travel = ValueAnimator.ofFloat(presence, 0f).apply {
+                duration = FADE_MS
+                interpolator = DecelerateInterpolator()
+                addUpdateListener { presence = it.animatedValue as Float; invalidate() }
+                addListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: android.animation.Animator) {
+                        settled = false
+                    }
+                })
+                start()
+            }
+            return
+        }
+        val to = RectF(bounds)
+        if (!hadOne) {
+            shown.set(to)
+            settled = true
+            travel = ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = FADE_MS
+                interpolator = DecelerateInterpolator()
+                addUpdateListener { presence = it.animatedValue as Float; invalidate() }
+                start()
+            }
+            return
+        }
+        travel = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = SLIDE_MS
+            interpolator = DecelerateInterpolator()
+            addUpdateListener {
+                val f = it.animatedValue as Float
+                shown.set(
+                    was.left + (to.left - was.left) * f,
+                    was.top + (to.top - was.top) * f,
+                    was.right + (to.right - was.right) * f,
+                    was.bottom + (to.bottom - was.bottom) * f,
+                )
+                presence = 1f
+                invalidate()
+            }
+            start()
+        }
     }
 
     /** Where the circle is, or nothing at all once the finger is gone. */
@@ -104,7 +181,10 @@ class HoverHighlightView(context: Context) : View(context) {
     }
 
     override fun onDraw(canvas: Canvas) {
-        marked?.let { canvas.drawRoundRect(RectF(it), 6f, 6f, paint) }
+        if (settled && presence > 0f) {
+            paint.alpha = (90 * presence).toInt().coerceIn(0, 255)
+            canvas.drawRoundRect(shown, 6f, 6f, paint)
+        }
         if (aimRadius <= 0f) return
         canvas.drawCircle(aimX, aimY, aimRadius - rim.strokeWidth, glass)
         canvas.drawCircle(aimX, aimY, aimRadius - rim.strokeWidth, rim)

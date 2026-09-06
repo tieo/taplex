@@ -15,6 +15,7 @@ import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.animation.DecelerateInterpolator
 import android.view.WindowManager
 import android.widget.FrameLayout
 import kotlinx.coroutines.CoroutineScope
@@ -53,6 +54,9 @@ class HoverController(
     private var highlight: HoverHighlightView? = null
     private var mist: MistView? = null
     private var card: EntryView? = null
+
+    /** Runs while the card is travelling from one word's place to the next. */
+    private var cardMove: ValueAnimator? = null
     private var input: View? = null
 
     /** Held so it can be taken off again: back closes the field, and only while it is up. */
@@ -253,7 +257,9 @@ class HoverController(
     }
 
     private fun hideLayer() {
-        card?.let { windowManager.removeView(it) }
+        cardMove?.cancel()
+        cardMove = null
+        card?.let { runCatching { windowManager.removeView(it) } }
         card = null
         highlight = null
         mist?.clear()
@@ -272,9 +278,35 @@ class HoverController(
     private fun cardView(): EntryView {
         card?.let { return it }
         val view = EntryView(context)
+        // Answers arrive, they do not appear: a card that is simply there was already there
+        // as far as the eye is concerned, and the eye is on the word rather than on it.
+        view.alpha = 0f
+        view.onTouchedAway = {
+            // Not while a finger is on the mark: the touch that begins a drag lands outside
+            // the card too, and the drag is about to replace what is in it anyway.
+            if (bubble?.active != true) dismissCard()
+        }
         windowManager.addView(view, cardParams(0, 0))
+        view.animate().alpha(1f).setDuration(ENTER_MS)
+            .setInterpolator(DecelerateInterpolator()).start()
         card = view
         return view
+    }
+
+    /** The card goes the way it came, and takes the aiming layer with it. */
+    private fun dismissCard() {
+        val view = card ?: return
+        card = null
+        cardMove?.cancel()
+        cardMove = null
+        view.animate().alpha(0f).setDuration(LEAVE_MS)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                runCatching { windowManager.removeView(view) }
+                // Nothing of ours is left over a conversation nobody is asking about.
+                if (card == null) hideLayer()
+            }
+            .start()
     }
 
     private fun cardParams(x: Int, y: Int, fromBottom: Boolean = false) = WindowManager.LayoutParams(
@@ -282,6 +314,9 @@ class HoverController(
         WRAP,
         CaptureService.overlayType(),
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            // What ends the card: a touch anywhere else. Without this nothing did, and an
+            // answer stayed over the conversation until the mark was found and tapped.
+            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
         PixelFormat.TRANSLUCENT
     ).apply {
@@ -328,7 +363,32 @@ class HoverController(
         } else {
             cardParams(x, under)
         }
-        windowManager.updateViewLayout(view, params)
+        val was = view.layoutParams as? WindowManager.LayoutParams
+        cardMove?.cancel()
+        cardMove = null
+        if (was != null && was.gravity == params.gravity && view.alpha > 0f &&
+            (was.x != params.x || was.y != params.y)
+        ) {
+            // The card follows the circle from word to word. Jumping there reads as a
+            // second card rather than as the same one moving, and the eye loses it.
+            val fromX = was.x
+            val fromY = was.y
+            cardMove = ValueAnimator.ofFloat(0f, 1f).apply {
+                duration = MOVE_MS
+                interpolator = DecelerateInterpolator()
+                addUpdateListener {
+                    if (card !== view) return@addUpdateListener
+                    val f = it.animatedValue as Float
+                    val step = WindowManager.LayoutParams().apply { copyFrom(params) }
+                    step.x = (fromX + (params.x - fromX) * f).toInt()
+                    step.y = (fromY + (params.y - fromY) * f).toInt()
+                    runCatching { windowManager.updateViewLayout(view, step) }
+                }
+                start()
+            }
+        } else {
+            windowManager.updateViewLayout(view, params)
+        }
         view.post {
             // A card taller than the space it was given scrolls inside it rather than
             // reaching past the edge of the screen.
@@ -554,6 +614,9 @@ class HoverController(
             val restY = bubbleY.coerceIn(0, screen.height() - height)
             ValueAnimator.ofInt(from, target).apply {
                 duration = PARK_MS
+                // Comes to rest rather than stopping dead. At a constant speed a thing that
+                // stops looks stopped, not settled.
+                interpolator = DecelerateInterpolator(1.6f)
                 addUpdateListener {
                     if (!isAttachedToWindow) return@addUpdateListener
                     bubbleX = it.animatedValue as Int
@@ -573,16 +636,18 @@ class HoverController(
          * thumb the moment a drag began, since it was picked up where it was parked. So the
          * thing being held stays held, and the thing doing the looking is drawn where it
          * can be seen: half the contact patch the screen reports for this touch, plus the
-         * circle's own radius, plus a quarter more, so the word is outside the hand rather
-         * than at the edge of it. A number picked by hand would be wrong on the next screen
-         * or the next finger.
+         * circle's own radius, plus a clear bubble's width more, so the word being read
+         * stands well above the hand instead of at the edge of it: at the edge, the word is
+         * under the knuckle even when the fingertip is clear of it. A number picked by hand
+         * would be wrong on the next screen or the next finger; a multiple of the contact
+         * patch the screen reports is not.
          */
         private fun followFinger(event: MotionEvent) {
             val size = width
             val covered = event.touchMajor.takeIf { it > 1f }
                 ?: (FINGER_INCHES * context.resources.displayMetrics.ydpi)
             val radius = size / 2f
-            val lift = covered / 2f + radius + size * 0.25f
+            val lift = covered / 2f + radius + size * CLEARANCE
             if (!lifted) {
                 lifted = true
                 Journal.note("lift is " + lift.toInt() + "px for a finger of " + covered.toInt() + "px")
@@ -616,10 +681,21 @@ class HoverController(
          */
         const val FINGER_INCHES = 0.43f
 
+        /**
+         * How far above the hand the circle rides, as a multiple of its own width, on top of
+         * half the contact patch and its own radius.
+         */
+        const val CLEARANCE = 1.1f
+
         /** How far off a word the circle may be and still mean it. */
         const val SLACK_DP = 12f
 
         /** How long the circle takes to get back to the side of the screen. */
-        const val PARK_MS = 180L
+        const val PARK_MS = 260L
+
+        /** How long an answer takes to arrive, to move to the next word, and to leave. */
+        const val ENTER_MS = 160L
+        const val MOVE_MS = 190L
+        const val LEAVE_MS = 150L
     }
 }

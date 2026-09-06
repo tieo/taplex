@@ -1,547 +1,563 @@
 {
-  "requirements": [
+ "requirements": [
+  {
+   "relations": [
     {
-      "relations": [
-        {
-          "role": "Lives in",
-          "to": "VIEW-HOME"
-        }
-      ],
-      "statement": "Someone who has just installed the app can see what is still missing before a lookup will work, and reach the screen that fixes it.",
-      "status": "Built",
-      "tag": "REQ",
-      "title": "Setup is visible and reachable",
-      "uid": "REQ-SETUP"
-    },
-    {
-      "relations": [
-        {
-          "role": "Lives in",
-          "to": "VIEW-HOME"
-        }
-      ],
-      "statement": "A dictionary is added from inside the app, over the network, without a computer.",
-      "status": "Built",
-      "tag": "REQ",
-      "title": "Dictionaries install themselves",
-      "uid": "REQ-INSTALL"
-    },
-    {
-      "relations": [
-        {
-          "role": "Lives in",
-          "to": "VIEW-HOME"
-        }
-      ],
-      "statement": "A build that takes minutes shows what it is doing and can be stopped.",
-      "status": "Built",
-      "tag": "REQ",
-      "title": "A long build is legible",
-      "uid": "REQ-PROGRESS"
-    },
-    {
-      "relations": [
-        {
-          "role": "Lives in",
-          "to": "VIEW-LAYER"
-        }
-      ],
-      "statement": "Every word on screen is a target of its own, and the picture under the boxes is the screen as it was when the lookup started.",
-      "status": "Built",
-      "tag": "REQ",
-      "title": "Word targets sit on a still picture",
-      "uid": "REQ-BOXES"
-    },
-    {
-      "relations": [
-        {
-          "role": "Lives in",
-          "to": "VIEW-ENTRY"
-        }
-      ],
-      "statement": "A tapped word is answered with its dictionary entry: the lemma it belongs to, what form the tapped spelling is, and every sense with its marks and examples.",
-      "status": "Built",
-      "tag": "REQ",
-      "title": "An entry, not a translation",
-      "uid": "REQ-ENTRY"
-    },
-    {
-      "relations": [
-        {
-          "role": "Lives in",
-          "to": "VIEW-ENTRY"
-        }
-      ],
-      "statement": "A word with no entry says so, and says whether that is because the word is missing or because no dictionary for its language is installed.",
-      "status": "Built",
-      "tag": "REQ",
-      "title": "Missing word and missing dictionary are different answers",
-      "uid": "REQ-MISSING"
-    },
-    {
-      "relations": [
-        {
-          "role": "Lives in",
-          "to": "VIEW-PICK"
-        }
-      ],
-      "statement": "The language a dictionary is wanted for is reached by typing its name, not by scrolling every language the phone can name.",
-      "status": "Built",
-      "tag": "REQ",
-      "title": "The language is found by typing",
-      "uid": "REQ-PICK"
-    },
-    {
-      "relations": [
-        {
-          "role": "Lives in",
-          "to": "VIEW-HOVER"
-        }
-      ],
-      "statement": "Looking a word up during a conversation freezes nothing and takes no touch away from the app being talked to: only the circle itself is Taplex's to press.",
-      "status": "Built",
-      "tag": "REQ",
-      "title": "The conversation keeps running",
-      "uid": "REQ-HOVER-LIVE"
-    },
-    {
-      "relations": [
-        {
-          "role": "Lives in",
-          "to": "VIEW-HOVER"
-        }
-      ],
-      "statement": "The circle rides above the fingertip and the answer opens clear of both, so the word being explained is never under the hand explaining it.",
-      "status": "Built",
-      "tag": "REQ",
-      "title": "The word can be seen while it is pointed at",
-      "uid": "REQ-HOVER-SIGHT"
-    },
-    {
-      "relations": [
-        {
-          "role": "Lives in",
-          "to": "VIEW-HOVER"
-        }
-      ],
-      "statement": "The circle appears when the app being talked to comes to the front and is gone everywhere else, so nothing of Taplex's sits over any other app.",
-      "status": "Built",
-      "tag": "REQ",
-      "title": "The circle belongs to one app",
-      "uid": "REQ-HOVER-FOLLOW"
-    },
-    {
-      "relations": [
-        {
-          "role": "Lives in",
-          "to": "VIEW-SAY"
-        }
-      ],
-      "statement": "A word someone does not know how to say is asked for in the language of the explanations and answered with the word for it in the language being learned, as an entry rather than a bare translation.",
-      "status": "Built",
-      "tag": "REQ",
-      "title": "A word that is wanted, not read",
-      "uid": "REQ-SAY"
+     "role": "Lives in",
+     "to": "VIEW-HOME"
     }
-  ],
-  "states": [
+   ],
+   "statement": "Someone who has just installed the app can see what is still missing before a lookup will work, and reach the screen that fixes it.",
+   "status": "Built",
+   "tag": "REQ",
+   "title": "Setup is visible and reachable",
+   "uid": "REQ-SETUP"
+  },
+  {
+   "relations": [
     {
-      "kind": "Empty",
-      "relations": [
-        {
-          "role": "State of",
-          "to": "VIEW-HOME"
-        }
-      ],
-      "renders": [
-        "main-nothing-set-up-phone.png"
-      ],
-      "statement": "Fresh install: nothing is permitted and no dictionary exists.",
-      "status": "Built",
-      "tag": "STATE",
-      "title": "Nothing set up",
-      "uid": "STATE-HOME-FRESH"
-    },
-    {
-      "relations": [
-        {
-          "role": "State of",
-          "to": "VIEW-HOME"
-        }
-      ],
-      "renders": [
-        "main-no-dictionaries-phone.png"
-      ],
-      "statement": "Permissions are granted, but no language has been added yet, so lookups fall back to machine translation.",
-      "status": "Built",
-      "tag": "STATE",
-      "title": "No dictionaries",
-      "uid": "STATE-HOME-NODICT"
-    },
-    {
-      "relations": [
-        {
-          "role": "State of",
-          "to": "VIEW-HOME"
-        }
-      ],
-      "renders": [
-        "main-ready-phone.png"
-      ],
-      "statement": "Set up, with dictionaries installed and their sizes shown.",
-      "status": "Built",
-      "tag": "STATE",
-      "title": "Ready",
-      "uid": "STATE-HOME-READY"
-    },
-    {
-      "relations": [
-        {
-          "role": "State of",
-          "to": "VIEW-HOME"
-        }
-      ],
-      "renders": [
-        "main-building-phone.png"
-      ],
-      "statement": "A dictionary is downloading and being built, with progress and a way to stop.",
-      "status": "Built",
-      "tag": "STATE",
-      "title": "Building a dictionary",
-      "uid": "STATE-HOME-BUILDING"
-    },
-    {
-      "kind": "Failed",
-      "relations": [
-        {
-          "role": "State of",
-          "to": "VIEW-HOME"
-        }
-      ],
-      "renders": [
-        "main-failed-phone.png"
-      ],
-      "statement": "The build stopped: no dump for that language, or the network failed.",
-      "status": "Built",
-      "tag": "STATE",
-      "title": "Build failed",
-      "uid": "STATE-HOME-FAILED"
-    },
-    {
-      "relations": [
-        {
-          "role": "State of",
-          "to": "VIEW-ENTRY"
-        }
-      ],
-      "renders": [
-        "entry-found-phone.png"
-      ],
-      "statement": "The word is in the dictionary, in more than one reading, the fitting one first.",
-      "status": "Built",
-      "tag": "STATE",
-      "title": "Entry found",
-      "uid": "STATE-ENTRY-FOUND"
-    },
-    {
-      "kind": "Empty",
-      "relations": [
-        {
-          "role": "State of",
-          "to": "VIEW-ENTRY"
-        }
-      ],
-      "renders": [
-        "entry-none-phone.png"
-      ],
-      "statement": "The dictionary is installed but has no entry for this word; a machine translation is offered as the guess it is.",
-      "status": "Built",
-      "tag": "STATE",
-      "title": "No entry",
-      "uid": "STATE-ENTRY-NONE"
-    },
-    {
-      "kind": "Failed",
-      "relations": [
-        {
-          "role": "State of",
-          "to": "VIEW-ENTRY"
-        }
-      ],
-      "renders": [
-        "entry-no-pack-phone.png"
-      ],
-      "statement": "No dictionary for the language on screen is installed at all, which is a thing the reader can fix.",
-      "status": "Built",
-      "tag": "STATE",
-      "title": "No dictionary installed",
-      "uid": "STATE-ENTRY-NOPACK"
-    },
-    {
-      "relations": [
-        {
-          "role": "State of",
-          "to": "VIEW-LAYER"
-        }
-      ],
-      "renders": [
-        "layer-words-phone.png"
-      ],
-      "statement": "The frozen screen with a box around every word that was read.",
-      "status": "Built",
-      "tag": "STATE",
-      "title": "Words found",
-      "uid": "STATE-LAYER-WORDS"
-    },
-    {
-      "relations": [
-        {
-          "role": "State of",
-          "to": "VIEW-PICK"
-        }
-      ],
-      "renders": [
-        "pick-all-phone.png"
-      ],
-      "statement": "Nothing typed yet: every language the phone can name, alphabetically.",
-      "status": "Built",
-      "tag": "STATE",
-      "title": "Every language",
-      "uid": "STATE-PICK-ALL"
-    },
-    {
-      "relations": [
-        {
-          "role": "State of",
-          "to": "VIEW-PICK"
-        }
-      ],
-      "renders": [
-        "pick-search-phone.png"
-      ],
-      "statement": "A few letters typed, leaving the languages whose name answers them.",
-      "status": "Built",
-      "tag": "STATE",
-      "title": "Searched",
-      "uid": "STATE-PICK-SEARCH"
-    },
-    {
-      "kind": "Empty",
-      "relations": [
-        {
-          "role": "State of",
-          "to": "VIEW-HOVER"
-        }
-      ],
-      "renders": [
-        "hover-parked-phone.png"
-      ],
-      "statement": "Armed and waiting: the circle sits at the edge of the conversation with nothing else on screen.",
-      "status": "Built",
-      "tag": "STATE",
-      "title": "Parked",
-      "uid": "STATE-HOVER-PARKED"
-    },
-    {
-      "relations": [
-        {
-          "role": "State of",
-          "to": "VIEW-HOVER"
-        }
-      ],
-      "renders": [
-        "hover-word-phone.png"
-      ],
-      "statement": "Mid-drag: the circle rides above the finger, the word under it is marked, and its entry stands open below it.",
-      "status": "Built",
-      "tag": "STATE",
-      "title": "On a word",
-      "uid": "STATE-HOVER-WORD"
-    },
-    {
-      "kind": "Empty",
-      "relations": [
-        {
-          "role": "State of",
-          "to": "VIEW-HOVER"
-        }
-      ],
-      "renders": [
-        "hover-none-phone.png"
-      ],
-      "statement": "The circle is over a word the pack does not have, so what stands under it is a machine translation, marked as the guess it is.",
-      "status": "Built",
-      "tag": "STATE",
-      "title": "On a word with no entry",
-      "uid": "STATE-HOVER-NONE"
-    },
-    {
-      "kind": "Empty",
-      "relations": [
-        {
-          "role": "State of",
-          "to": "VIEW-SAY"
-        }
-      ],
-      "renders": [
-        "say-asked-phone.png"
-      ],
-      "statement": "The field is open and empty, saying which language the answer will come back in.",
-      "status": "Built",
-      "tag": "STATE",
-      "title": "Asked",
-      "uid": "STATE-SAY-ASKED"
-    },
-    {
-      "relations": [
-        {
-          "role": "State of",
-          "to": "VIEW-SAY"
-        }
-      ],
-      "renders": [
-        "say-answered-phone.png"
-      ],
-      "statement": "A phrase was typed and the word for it came back with its entry: senses, marks and an example, so the guess can be judged.",
-      "status": "Built",
-      "tag": "STATE",
-      "title": "Answered",
-      "uid": "STATE-SAY-ANSWERED"
+     "role": "Lives in",
+     "to": "VIEW-HOME"
     }
-  ],
-  "stories": [],
-  "views": [
+   ],
+   "statement": "A dictionary is added from inside the app, over the network, without a computer.",
+   "status": "Built",
+   "tag": "REQ",
+   "title": "Dictionaries install themselves",
+   "uid": "REQ-INSTALL"
+  },
+  {
+   "relations": [
     {
-      "relations": [],
-      "renders": [
-        "main-ready-phone.png"
-      ],
-      "sources": [
-        "app/src/main/java/de/tieo/taplex/TaplexScreen.kt",
-        "app/src/main/java/de/tieo/taplex/MainActivity.kt"
-      ],
-      "statement": "The app's own screen: what is still to be allowed, which dictionaries are on the phone, and how to add one.",
-      "states": [
-        "Empty",
-        "Failed",
-        "No dictionaries",
-        "Ready",
-        "Building a dictionary"
-      ],
-      "status": "Built",
-      "tag": "VIEW",
-      "title": "Home",
-      "uid": "VIEW-HOME"
-    },
-    {
-      "relations": [],
-      "renders": [
-        "layer-words-phone.png"
-      ],
-      "sources": [
-        "app/src/main/java/de/tieo/taplex/WordLayerView.kt",
-        "app/src/main/java/de/tieo/taplex/OverlayController.kt"
-      ],
-      "statement": "The layer over another app: the screen as it was, with every word a target.",
-      "states": [
-        "Words found"
-      ],
-      "status": "Built",
-      "tag": "VIEW",
-      "title": "Word layer",
-      "uid": "VIEW-LAYER"
-    },
-    {
-      "relations": [],
-      "renders": [
-        "entry-found-phone.png"
-      ],
-      "sources": [
-        "app/src/main/java/de/tieo/taplex/EntryView.kt"
-      ],
-      "statement": "What a tapped word turns into: its entry, or an honest account of why there is none.",
-      "states": [
-        "Entry found",
-        "Empty",
-        "Failed"
-      ],
-      "status": "Built",
-      "tag": "VIEW",
-      "title": "Entry card",
-      "uid": "VIEW-ENTRY"
-    },
-    {
-      "relations": [
-        {
-          "role": "Reached from",
-          "to": "VIEW-HOME"
-        }
-      ],
-      "renders": [
-        "pick-search-phone.png"
-      ],
-      "statement": "The list of languages a dictionary can be built for, with the search that reaches one.",
-      "status": "Built",
-      "tag": "VIEW",
-      "title": "Language picker",
-      "uid": "VIEW-PICK",
-      "sources": [
-        "app/src/main/java/de/tieo/taplex/TaplexScreen.kt",
-        "app/src/main/java/de/tieo/taplex/PackSource.kt"
-      ],
-      "states": [
-        "Every language",
-        "Searched"
-      ]
-    },
-    {
-      "relations": [
-        {
-          "role": "Reached from",
-          "to": "VIEW-HOME"
-        }
-      ],
-      "renders": [
-        "hover-word-phone.png"
-      ],
-      "sources": [
-        "app/src/main/java/de/tieo/taplex/HoverController.kt",
-        "app/src/main/java/de/tieo/taplex/HoverViews.kt"
-      ],
-      "statement": "The way in for a conversation: a circle dragged over the words being spoken, answering whatever it passes without stopping the app underneath.",
-      "states": [
-        "Parked",
-        "On a word",
-        "On a word with no entry"
-      ],
-      "status": "Built",
-      "tag": "VIEW",
-      "title": "The circle",
-      "uid": "VIEW-HOVER"
-    },
-    {
-      "relations": [
-        {
-          "role": "Reached from",
-          "to": "VIEW-HOVER"
-        }
-      ],
-      "renders": [
-        "say-answered-phone.png"
-      ],
-      "sources": [
-        "app/src/main/java/de/tieo/taplex/HoverController.kt",
-        "app/src/main/java/de/tieo/taplex/HoverViews.kt"
-      ],
-      "statement": "The other direction: a field for what someone wants to say, answered with the word for it and that word's entry.",
-      "states": [
-        "Asked",
-        "Answered"
-      ],
-      "status": "Built",
-      "tag": "VIEW",
-      "title": "Say it",
-      "uid": "VIEW-SAY"
+     "role": "Lives in",
+     "to": "VIEW-HOME"
     }
-  ]
+   ],
+   "statement": "A build that takes minutes shows what it is doing and can be stopped.",
+   "status": "Built",
+   "tag": "REQ",
+   "title": "A long build is legible",
+   "uid": "REQ-PROGRESS"
+  },
+  {
+   "relations": [
+    {
+     "role": "Lives in",
+     "to": "VIEW-LAYER"
+    }
+   ],
+   "statement": "Every word on screen is a target of its own, and the picture under the boxes is the screen as it was when the lookup started.",
+   "status": "Built",
+   "tag": "REQ",
+   "title": "Word targets sit on a still picture",
+   "uid": "REQ-BOXES"
+  },
+  {
+   "relations": [
+    {
+     "role": "Lives in",
+     "to": "VIEW-ENTRY"
+    }
+   ],
+   "statement": "A tapped word is answered with its dictionary entry: the lemma it belongs to, what form the tapped spelling is, and every sense with its marks and examples.",
+   "status": "Built",
+   "tag": "REQ",
+   "title": "An entry, not a translation",
+   "uid": "REQ-ENTRY"
+  },
+  {
+   "relations": [
+    {
+     "role": "Lives in",
+     "to": "VIEW-ENTRY"
+    }
+   ],
+   "statement": "A word with no entry says so, and says whether that is because the word is missing or because no dictionary for its language is installed.",
+   "status": "Built",
+   "tag": "REQ",
+   "title": "Missing word and missing dictionary are different answers",
+   "uid": "REQ-MISSING"
+  },
+  {
+   "relations": [
+    {
+     "role": "Lives in",
+     "to": "VIEW-PICK"
+    }
+   ],
+   "statement": "The language a dictionary is wanted for is reached by typing its name, not by scrolling every language the phone can name.",
+   "status": "Built",
+   "tag": "REQ",
+   "title": "The language is found by typing",
+   "uid": "REQ-PICK"
+  },
+  {
+   "relations": [
+    {
+     "role": "Lives in",
+     "to": "VIEW-HOVER"
+    }
+   ],
+   "statement": "Looking a word up during a conversation freezes nothing and takes no touch away from the app being talked to: only the circle itself is Taplex's to press.",
+   "status": "Built",
+   "tag": "REQ",
+   "title": "The conversation keeps running",
+   "uid": "REQ-HOVER-LIVE"
+  },
+  {
+   "relations": [
+    {
+     "role": "Lives in",
+     "to": "VIEW-HOVER"
+    }
+   ],
+   "statement": "The circle rides above the fingertip and the answer opens clear of both, so the word being explained is never under the hand explaining it.",
+   "status": "Built",
+   "tag": "REQ",
+   "title": "The word can be seen while it is pointed at",
+   "uid": "REQ-HOVER-SIGHT"
+  },
+  {
+   "relations": [
+    {
+     "role": "Lives in",
+     "to": "VIEW-HOVER"
+    }
+   ],
+   "statement": "The circle appears when the app being talked to comes to the front and is gone everywhere else, so nothing of Taplex's sits over any other app.",
+   "status": "Built",
+   "tag": "REQ",
+   "title": "The circle belongs to one app",
+   "uid": "REQ-HOVER-FOLLOW"
+  },
+  {
+   "relations": [
+    {
+     "role": "Lives in",
+     "to": "VIEW-SAY"
+    }
+   ],
+   "statement": "A word someone does not know how to say is asked for in the language of the explanations and answered with the word for it in the language being learned, as an entry rather than a bare translation.",
+   "status": "Built",
+   "tag": "REQ",
+   "title": "A word that is wanted, not read",
+   "uid": "REQ-SAY"
+  }
+ ],
+ "states": [
+  {
+   "kind": "Empty",
+   "relations": [
+    {
+     "role": "State of",
+     "to": "VIEW-HOME"
+    }
+   ],
+   "renders": [
+    "main-nothing-set-up-phone.png"
+   ],
+   "statement": "Fresh install: nothing is permitted and no dictionary exists.",
+   "status": "Built",
+   "tag": "STATE",
+   "title": "Nothing set up",
+   "uid": "STATE-HOME-FRESH"
+  },
+  {
+   "relations": [
+    {
+     "role": "State of",
+     "to": "VIEW-HOME"
+    }
+   ],
+   "renders": [
+    "main-no-dictionaries-phone.png"
+   ],
+   "statement": "Permissions are granted, but no language has been added yet, so lookups fall back to machine translation.",
+   "status": "Built",
+   "tag": "STATE",
+   "title": "No dictionaries",
+   "uid": "STATE-HOME-NODICT"
+  },
+  {
+   "relations": [
+    {
+     "role": "State of",
+     "to": "VIEW-HOME"
+    }
+   ],
+   "renders": [
+    "main-ready-phone.png"
+   ],
+   "statement": "Set up, with dictionaries installed and their sizes shown.",
+   "status": "Built",
+   "tag": "STATE",
+   "title": "Ready",
+   "uid": "STATE-HOME-READY"
+  },
+  {
+   "relations": [
+    {
+     "role": "State of",
+     "to": "VIEW-HOME"
+    }
+   ],
+   "renders": [
+    "main-building-phone.png"
+   ],
+   "statement": "A dictionary is downloading and being built, with progress and a way to stop.",
+   "status": "Built",
+   "tag": "STATE",
+   "title": "Building a dictionary",
+   "uid": "STATE-HOME-BUILDING"
+  },
+  {
+   "kind": "Failed",
+   "relations": [
+    {
+     "role": "State of",
+     "to": "VIEW-HOME"
+    }
+   ],
+   "renders": [
+    "main-failed-phone.png"
+   ],
+   "statement": "The build stopped: no dump for that language, or the network failed.",
+   "status": "Built",
+   "tag": "STATE",
+   "title": "Build failed",
+   "uid": "STATE-HOME-FAILED"
+  },
+  {
+   "relations": [
+    {
+     "role": "State of",
+     "to": "VIEW-ENTRY"
+    }
+   ],
+   "renders": [
+    "entry-found-phone.png"
+   ],
+   "statement": "The word is in the dictionary, in more than one reading, the fitting one first.",
+   "status": "Built",
+   "tag": "STATE",
+   "title": "Entry found",
+   "uid": "STATE-ENTRY-FOUND"
+  },
+  {
+   "kind": "Empty",
+   "relations": [
+    {
+     "role": "State of",
+     "to": "VIEW-ENTRY"
+    }
+   ],
+   "renders": [
+    "entry-none-phone.png"
+   ],
+   "statement": "The dictionary is installed but has no entry for this word; a machine translation is offered as the guess it is.",
+   "status": "Built",
+   "tag": "STATE",
+   "title": "No entry",
+   "uid": "STATE-ENTRY-NONE"
+  },
+  {
+   "kind": "Failed",
+   "relations": [
+    {
+     "role": "State of",
+     "to": "VIEW-ENTRY"
+    }
+   ],
+   "renders": [
+    "entry-no-pack-phone.png"
+   ],
+   "statement": "No dictionary for the language on screen is installed at all, which is a thing the reader can fix.",
+   "status": "Built",
+   "tag": "STATE",
+   "title": "No dictionary installed",
+   "uid": "STATE-ENTRY-NOPACK"
+  },
+  {
+   "relations": [
+    {
+     "role": "State of",
+     "to": "VIEW-LAYER"
+    }
+   ],
+   "renders": [
+    "layer-words-phone.png"
+   ],
+   "statement": "The frozen screen with a box around every word that was read.",
+   "status": "Built",
+   "tag": "STATE",
+   "title": "Words found",
+   "uid": "STATE-LAYER-WORDS"
+  },
+  {
+   "relations": [
+    {
+     "role": "State of",
+     "to": "VIEW-PICK"
+    }
+   ],
+   "renders": [
+    "pick-all-phone.png"
+   ],
+   "statement": "Nothing typed yet: every language the phone can name, alphabetically.",
+   "status": "Built",
+   "tag": "STATE",
+   "title": "Every language",
+   "uid": "STATE-PICK-ALL"
+  },
+  {
+   "relations": [
+    {
+     "role": "State of",
+     "to": "VIEW-PICK"
+    }
+   ],
+   "renders": [
+    "pick-search-phone.png"
+   ],
+   "statement": "A few letters typed, leaving the languages whose name answers them.",
+   "status": "Built",
+   "tag": "STATE",
+   "title": "Searched",
+   "uid": "STATE-PICK-SEARCH"
+  },
+  {
+   "kind": "Empty",
+   "relations": [
+    {
+     "role": "State of",
+     "to": "VIEW-HOVER"
+    }
+   ],
+   "renders": [
+    "hover-parked-phone.png"
+   ],
+   "statement": "Armed and waiting: the circle sits at the edge of the conversation with nothing else on screen.",
+   "status": "Built",
+   "tag": "STATE",
+   "title": "Parked",
+   "uid": "STATE-HOVER-PARKED"
+  },
+  {
+   "relations": [
+    {
+     "role": "State of",
+     "to": "VIEW-HOVER"
+    }
+   ],
+   "renders": [
+    "hover-thread-phone.png"
+   ],
+   "statement": "The moment the drag begins: light is drawn up out of the mark and has not yet reached the word, so the ring is barely there and the thread is still climbing.",
+   "status": "Built",
+   "tag": "STATE",
+   "title": "The thread being struck",
+   "uid": "STATE-HOVER-THREAD"
+  },
+  {
+   "relations": [
+    {
+     "role": "State of",
+     "to": "VIEW-HOVER"
+    }
+   ],
+   "renders": [
+    "hover-word-phone.png"
+   ],
+   "statement": "Mid-drag: the circle rides well above the finger with a thread of light running between the two, the word under it is marked, and its entry stands open by it.",
+   "status": "Built",
+   "tag": "STATE",
+   "title": "On a word",
+   "uid": "STATE-HOVER-WORD"
+  },
+  {
+   "kind": "Empty",
+   "relations": [
+    {
+     "role": "State of",
+     "to": "VIEW-HOVER"
+    }
+   ],
+   "renders": [
+    "hover-none-phone.png"
+   ],
+   "statement": "The circle is over a word the pack does not have, so what stands under it is a machine translation, marked as the guess it is.",
+   "status": "Built",
+   "tag": "STATE",
+   "title": "On a word with no entry",
+   "uid": "STATE-HOVER-NONE"
+  },
+  {
+   "kind": "Empty",
+   "relations": [
+    {
+     "role": "State of",
+     "to": "VIEW-SAY"
+    }
+   ],
+   "renders": [
+    "say-asked-phone.png"
+   ],
+   "statement": "The field is open and empty, saying which language the answer will come back in.",
+   "status": "Built",
+   "tag": "STATE",
+   "title": "Asked",
+   "uid": "STATE-SAY-ASKED"
+  },
+  {
+   "relations": [
+    {
+     "role": "State of",
+     "to": "VIEW-SAY"
+    }
+   ],
+   "renders": [
+    "say-answered-phone.png"
+   ],
+   "statement": "A phrase was typed and the word for it came back with its entry: senses, marks and an example, so the guess can be judged.",
+   "status": "Built",
+   "tag": "STATE",
+   "title": "Answered",
+   "uid": "STATE-SAY-ANSWERED"
+  }
+ ],
+ "stories": [],
+ "views": [
+  {
+   "relations": [],
+   "renders": [
+    "main-ready-phone.png"
+   ],
+   "sources": [
+    "app/src/main/java/de/tieo/taplex/TaplexScreen.kt",
+    "app/src/main/java/de/tieo/taplex/MainActivity.kt"
+   ],
+   "statement": "The app's own screen: what is still to be allowed, which dictionaries are on the phone, and how to add one.",
+   "states": [
+    "Empty",
+    "Failed",
+    "No dictionaries",
+    "Ready",
+    "Building a dictionary"
+   ],
+   "status": "Built",
+   "tag": "VIEW",
+   "title": "Home",
+   "uid": "VIEW-HOME"
+  },
+  {
+   "relations": [],
+   "renders": [
+    "layer-words-phone.png"
+   ],
+   "sources": [
+    "app/src/main/java/de/tieo/taplex/WordLayerView.kt",
+    "app/src/main/java/de/tieo/taplex/OverlayController.kt"
+   ],
+   "statement": "The layer over another app: the screen as it was, with every word a target.",
+   "states": [
+    "Words found"
+   ],
+   "status": "Built",
+   "tag": "VIEW",
+   "title": "Word layer",
+   "uid": "VIEW-LAYER"
+  },
+  {
+   "relations": [],
+   "renders": [
+    "entry-found-phone.png"
+   ],
+   "sources": [
+    "app/src/main/java/de/tieo/taplex/EntryView.kt"
+   ],
+   "statement": "What a tapped word turns into: its entry, or an honest account of why there is none.",
+   "states": [
+    "Entry found",
+    "Empty",
+    "Failed"
+   ],
+   "status": "Built",
+   "tag": "VIEW",
+   "title": "Entry card",
+   "uid": "VIEW-ENTRY"
+  },
+  {
+   "relations": [
+    {
+     "role": "Reached from",
+     "to": "VIEW-HOME"
+    }
+   ],
+   "renders": [
+    "pick-search-phone.png"
+   ],
+   "sources": [
+    "app/src/main/java/de/tieo/taplex/TaplexScreen.kt",
+    "app/src/main/java/de/tieo/taplex/PackSource.kt"
+   ],
+   "statement": "The list of languages a dictionary can be built for, with the search that reaches one.",
+   "states": [
+    "Every language",
+    "Searched"
+   ],
+   "status": "Built",
+   "tag": "VIEW",
+   "title": "Language picker",
+   "uid": "VIEW-PICK"
+  },
+  {
+   "relations": [
+    {
+     "role": "Reached from",
+     "to": "VIEW-HOME"
+    }
+   ],
+   "renders": [
+    "hover-word-phone.png"
+   ],
+   "sources": [
+    "app/src/main/java/de/tieo/taplex/HoverController.kt",
+    "app/src/main/java/de/tieo/taplex/HoverViews.kt"
+   ],
+   "statement": "The way in for a conversation: a circle dragged over the words being spoken, answering whatever it passes without stopping the app underneath.",
+   "states": [
+    "Parked",
+    "On a word",
+    "On a word with no entry"
+   ],
+   "status": "Built",
+   "tag": "VIEW",
+   "title": "The circle",
+   "uid": "VIEW-HOVER"
+  },
+  {
+   "relations": [
+    {
+     "role": "Reached from",
+     "to": "VIEW-HOVER"
+    }
+   ],
+   "renders": [
+    "say-answered-phone.png"
+   ],
+   "sources": [
+    "app/src/main/java/de/tieo/taplex/HoverController.kt",
+    "app/src/main/java/de/tieo/taplex/HoverViews.kt"
+   ],
+   "statement": "The other direction: a field for what someone wants to say, answered with the word for it and that word's entry.",
+   "states": [
+    "Asked",
+    "Answered"
+   ],
+   "status": "Built",
+   "tag": "VIEW",
+   "title": "Say it",
+   "uid": "VIEW-SAY"
+  }
+ ]
 }

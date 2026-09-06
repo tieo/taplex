@@ -253,6 +253,20 @@ class BookRenders {
     }
 
     @Test
+    fun `hover thread being struck`() {
+        paparazzi.snapshot("hover-thread-phone") {
+            AndroidView { context ->
+                conversation(
+                    context,
+                    circleAt = HOVERED,
+                    marked = HOVERED,
+                    threadAge = 0.14f
+                )
+            }
+        }
+    }
+
+    @Test
     fun `hover circle parked`() {
         paparazzi.snapshot("hover-parked-phone") {
             AndroidView { context -> conversation(context, circleAt = null, marked = null) }
@@ -352,7 +366,9 @@ class BookRenders {
         context: Context,
         circleAt: Rect?,
         marked: Rect?,
-        card: ((EntryView) -> Unit)? = null
+        card: ((EntryView) -> Unit)? = null,
+        /** How long the thread has been running, since it looks different as it reaches. */
+        threadAge: Float = 1.4f
     ): View {
         val density = context.resources.displayMetrics.density
         val frame = FrameLayout(context)
@@ -380,13 +396,38 @@ class BookRenders {
             )
         }
         val size = (40 * density).toInt()
+        // Mid-drag the hand holds the mark and the circle rides well above it, with the
+        // thread of light between the two: that gap is the whole gesture, and a picture
+        // with the mark sitting on the word instead shows none of it.
+        val ringX = circleAt?.let { it.left + it.width() / 2f }
+        val ringY = circleAt?.let { it.top + it.height() / 2f }
+        val lift = size * 1.1f + size / 2f + (34 * density)
+        if (circleAt != null && ringX != null && ringY != null) {
+            frame.addView(
+                MistView(context).apply {
+                    poseAt(
+                        seconds = threadAge,
+                        fingerX = ringX,
+                        fingerY = ringY + lift,
+                        ringX = ringX,
+                        ringY = ringY,
+                        radius = size / 2f
+                    )
+                },
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+            )
+        }
         frame.addView(
             HoverBubbleView(context).apply { active = circleAt != null },
             FrameLayout.LayoutParams(size, size).apply {
-                // Parked at the side, or riding above the finger on the word it is reading.
-                leftMargin = circleAt?.let { it.left + it.width() / 2 - size / 2 }
+                // Held under the finger while dragging, parked at the side when not.
+                leftMargin = ringX?.let { (it - size / 2f).toInt() }
                     ?: (SOURCE_WIDTH - size - (16 * density).toInt())
-                topMargin = circleAt?.let { it.top - size / 2 } ?: (SOURCE_HEIGHT / 2)
+                topMargin = ringY?.let { (it + lift - size / 2f).toInt() }
+                    ?: (SOURCE_HEIGHT / 2)
             }
         )
         return frame
