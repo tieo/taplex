@@ -80,13 +80,17 @@ class EntryView(context: Context) : ScrollView(context) {
         column.removeAllViews()
 
         if (entries.isEmpty()) {
-            column.addView(headline(tapped, null, null))
+            // A tag, not a sentence. Someone holding a finger over a word is reading the
+            // word, and a line of prose explaining why there is no entry is a line they
+            // have to read instead of the answer they asked for.
             column.addView(
-                line(note ?: context.getString(R.string.no_entry), size = 13f, color = MUTED)
+                headline(tapped, note ?: context.getString(R.string.no_entry), null)
             )
             if (!translation.isNullOrBlank()) {
-                column.addView(line(translation, size = 17f))
-                column.addView(line(context.getString(R.string.guessed), size = 12f, color = MUTED))
+                column.addView(
+                    headline(translation, context.getString(R.string.guessed), null)
+                        .apply { setPadding(0, dp(6), 0, 0) }
+                )
             }
             column.addView(
                 line(context.getString(R.string.open_article, glossLanguage), size = 13f, color = LINK)
@@ -102,7 +106,7 @@ class EntryView(context: Context) : ScrollView(context) {
             if (index > 0) column.addView(divider())
             column.addView(headline(entry.lemma, entry.pos, entry.ipa))
             val form = when {
-                entry.label != null -> context.getString(R.string.form_of, tapped, entry.label, entry.lemma)
+                entry.label != null -> context.getString(R.string.form_of, tapped, entry.label)
                 !entry.lemma.equals(tapped, ignoreCase = true) ->
                     context.getString(R.string.tapped_form, tapped)
                 else -> null

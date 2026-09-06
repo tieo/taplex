@@ -74,6 +74,9 @@ class HoverController(
     /** Where the circle is pointing, kept so a late reading can still answer it. */
     private var aim: Point? = null
 
+    /** Where the hand is, which is the half of the screen the answer must stay out of. */
+    private var handY: Int = 0
+
     /** How big the circle around that point is, which the card has to clear. */
     private var aimRadius = 0
 
@@ -367,12 +370,17 @@ class HoverController(
         // worth less than an answer that runs off the display.
         val circle = aim
         val circleTop = circle?.let { it.y - aimRadius } ?: word.top
-        val circleBottom = circle?.let { it.y + aimRadius } ?: word.bottom
         val clearOf = minOf(word.top, circleTop) - margin
-        val under = maxOf(word.bottom, circleBottom) + margin
+        // Below is where the hand is. Everything from the word down is the circle, the
+        // finger holding it and the arm behind that, so the answer goes above whenever
+        // there is room to read it there - not merely when there is more room than below,
+        // which put it under the hand for any word in the top half of the screen. When
+        // there is no room above, it clears the hand rather than the circle.
+        val under = maxOf(word.bottom, handY + (36 * density).toInt()) + margin
         val roomAbove = clearOf - margin
         val roomBelow = screen.height() - under - margin
-        val goesAbove = roomAbove >= roomBelow
+        val goesAbove = roomAbove >= minOf(maxHeight, (READABLE_DP * density).toInt()) ||
+            roomAbove >= roomBelow
         val room = (if (goesAbove) roomAbove else roomBelow).coerceAtMost(maxHeight)
 
         val params = if (goesAbove) {
@@ -685,6 +693,7 @@ class HoverController(
             bubbleY = (event.rawY - radius).toInt()
             windowManager.updateViewLayout(this, bubbleParams(size))
             val aimY = event.rawY - lift
+            handY = event.rawY.toInt()
             if (!formed) {
                 formed = true
                 masked = true
@@ -715,6 +724,10 @@ class HoverController(
          * half the contact patch and its own radius.
          */
         const val CLEARANCE = 1.1f
+
+        /** Enough of an answer to be worth reading, in dp: above the word is preferred to
+         *  below it down to this, because below it is the hand. */
+        const val READABLE_DP = 170f
 
         /** How far off a word the circle may be and still mean it. */
         const val SLACK_DP = 12f
