@@ -439,6 +439,22 @@
    "tag": "STATE",
    "title": "Answered",
    "uid": "STATE-SAY-ANSWERED"
+  },
+  {
+   "relations": [
+    {
+     "role": "State of",
+     "to": "VIEW-HOME"
+    }
+   ],
+   "renders": [
+    "main-apps-phone.png"
+   ],
+   "statement": "The circle is wanted in some apps and not others: the apps already chosen stand at the top of the list, and the rest follow in order.",
+   "status": "Built",
+   "tag": "STATE",
+   "title": "Choosing which apps the circle appears in",
+   "uid": "STATE-HOME-APPS"
   }
  ],
  "stories": [],

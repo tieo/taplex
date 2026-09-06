@@ -78,8 +78,10 @@ class BookRenders {
         overlay: Boolean = true,
         installed: List<InstalledPack> = listOf(spanish),
         build: PackService.State = PackService.State.Idle,
-        hover: Boolean = false
-    ) = UiState(lookup, overlay, "en", installed, build, hover)
+        hover: Boolean = false,
+        everywhere: Boolean = true,
+        apps: List<AppChoice> = emptyList()
+    ) = UiState(lookup, overlay, "en", installed, build, hover, everywhere, apps)
 
     @Test
     fun `main screen nothing set up`() {
@@ -92,6 +94,27 @@ class BookRenders {
     fun `main screen no dictionaries`() {
         paparazzi.snapshot("main-no-dictionaries-phone") {
             TaplexTheme { TaplexScreen(state(installed = emptyList())) }
+        }
+    }
+
+    @Test
+    fun `main screen choosing which apps`() {
+        paparazzi.snapshot("main-apps-phone") {
+            TaplexTheme {
+                TaplexScreen(
+                    state(
+                        hover = true,
+                        everywhere = false,
+                        apps = listOf(
+                            AppChoice("com.google.android.apps.bard", "Gemini", chosen = true),
+                            AppChoice("com.whatsapp", "WhatsApp", chosen = true),
+                            AppChoice("com.android.chrome", "Chrome", chosen = false),
+                            AppChoice("com.google.android.gm", "Gmail", chosen = false),
+                            AppChoice("org.telegram.messenger", "Telegram", chosen = false)
+                        )
+                    )
+                )
+            }
         }
     }
 
