@@ -75,6 +75,7 @@ private fun Main() {
     var picking by remember { mutableStateOf(false) }
     var hovering by remember { mutableStateOf(prefs.hoverEnabled) }
     var everywhere by remember { mutableStateOf(prefs.hoverEverywhere) }
+    var onRight by remember { mutableStateOf(prefs.markOnRight) }
     var chosen by remember { mutableStateOf(prefs.hoverPackages) }
     // Every app with a launcher entry, which is what a reader means by "an app". Read off
     // the main thread: a phone with a few hundred of them takes a moment over it.
@@ -102,7 +103,7 @@ private fun Main() {
         onDispose { owner.lifecycle.removeObserver(watcher) }
     }
 
-    val state = remember(reread, build, hovering, everywhere, chosen, apps, query, answer) {
+    val state = remember(reread, build, hovering, everywhere, onRight, chosen, apps, query, answer) {
         UiState(
             lookupEnabled = lookupEnabled(context),
             canDrawOverlay = Settings.canDrawOverlays(context),
@@ -118,6 +119,7 @@ private fun Main() {
             build = build,
             hoverEnabled = hovering,
             hoverEverywhere = everywhere,
+            markOnRight = onRight,
             apps = apps.map { it.copy(chosen = it.pkg in chosen) },
             query = query,
             answer = answer
@@ -176,6 +178,13 @@ private fun Main() {
             onHoverEverywhereChanged = { wanted ->
                 prefs.hoverEverywhere = wanted
                 everywhere = wanted
+            },
+            onMarkSideChanged = { right ->
+                prefs.markOnRight = right
+                onRight = right
+                // The mark moves to the side it was just given rather than at the end of
+                // the next drag, since the point of choosing was to know where it is.
+                TaplexAccessibilityService.running?.repark()
             },
             onHoverAppToggled = { pkg ->
                 val next = if (pkg in chosen) chosen - pkg else chosen + pkg

@@ -92,16 +92,22 @@ class HoverController(
         refresh()
         val view = BubbleView(context)
         val size = (BUBBLE_DP * density).toInt()
-        if (bubbleX < 0) {
-            val screen = screenSize()
-            bubbleX = screen.width() - size - (16 * density).toInt()
-            bubbleY = screen.height() / 2
-        }
+        val screen = screenSize()
+        bubbleX = restingX(size)
+        if (bubbleY <= 0) bubbleY = screen.height() / 2
         view.masked = false
         runCatching { windowManager.addView(view, bubbleParams(size)) }
             .onFailure { Journal.failed("putting the circle up", it) }
             .onSuccess { Journal.note("circle up at $bubbleX,$bubbleY") }
         bubble = view
+    }
+
+    /** Put the mark back on the side it lives on, now that the side may have changed. */
+    fun repark() {
+        val view = bubble ?: return
+        val size = (BUBBLE_DP * density).toInt()
+        bubbleX = restingX(size)
+        runCatching { windowManager.updateViewLayout(view, bubbleParams(size)) }
     }
 
     fun disarm() {
@@ -329,6 +335,15 @@ class HoverController(
             .start()
     }
 
+    /**
+     * Where the mark rests, which is a side the reader chose rather than the side the hand
+     * happened to finish on.
+     */
+    private fun restingX(size: Int): Int {
+        val margin = (16 * density).toInt()
+        return if (Prefs(context).markOnRight) screenSize().width() - size - margin else margin
+    }
+
     private fun cardParams(x: Int, y: Int, fromBottom: Boolean = false) = WindowManager.LayoutParams(
         (screenSize().width() * 0.82f).toInt(),
         WRAP,
@@ -362,7 +377,11 @@ class HoverController(
         val maxHeight = (screen.height() * 0.45f).toInt()
         val maxX = (screen.width() - (screen.width() * 0.82f).toInt() - margin)
             .coerceAtLeast(margin)
-        val x = word.left.coerceIn(margin, maxX)
+        // The same place every time, and away from the hand. Following the word's own left
+        // edge moved the answer to a new column for every word, so it had to be found again
+        // each time; and the hand comes in from the side the mark rests on, so the answer
+        // goes to the other one.
+        val x = if (Prefs(context).markOnRight) margin else maxX
 
         // Everything from the top of the circle down is the word, the circle over it, or
         // the hand below that, so the card hangs by its bottom edge from there. Near the
@@ -391,8 +410,10 @@ class HoverController(
         val was = view.layoutParams as? WindowManager.LayoutParams
         cardMove?.cancel()
         cardMove = null
+        val step = kotlin.math.abs(was?.y?.minus(params.y) ?: 0) +
+            kotlin.math.abs(was?.x?.minus(params.x) ?: 0)
         if (was != null && was.gravity == params.gravity && view.alpha > 0f &&
-            (was.x != params.x || was.y != params.y)
+            step in 1..(NEAR_DP * density).toInt()
         ) {
             // The card follows the circle from word to word. Jumping there reads as a
             // second card rather than as the same one moving, and the eye loses it.
@@ -550,6 +571,21 @@ class HoverController(
     /** The circle: a handle to drag, and the thing that says where the lookup is aimed. */
     private inner class BubbleView(context: Context) : HoverBubbleView(context) {
 
+        /**
+         * The strip the mark occupies belongs to the mark, not to the system.
+         *
+         * It rests against the edge of the screen, which is where a swipe inwards means
+         * "back". Dragging it therefore went back instead of picking it up, at random,
+         * depending on how straight the first few pixels were. Claiming the strip stops the
+         * system reading a drag that starts on the mark as a gesture of its own.
+         */
+        override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+            super.onLayout(changed, l, t, r, b)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                systemGestureExclusionRects = listOf(Rect(0, 0, width, height))
+            }
+        }
+
         private val slop = ViewConfiguration.get(context).scaledTouchSlop
         private val longPress = Runnable {
             longPressed = true
@@ -568,6 +604,60 @@ class HoverController(
 
         /** Whether the current has been struck up out of the mark yet, this gesture. */
         private var formed = false
+
+        // The ball is not nailed to a point above the finger; it is on the end of the
+        // thread. It is pulled towards where the finger is holding it, it has weight, and
+        // it swings past and settles rather than stopping where the hand stopped - which is
+        // what makes the thread read as a leash instead of a stick.
+        private var ballX = 0f
+        private var ballY = 0f
+        private var ballVx = 0f
+        private var ballVy = 0f
+        private var wantX = 0f
+        private var wantY = 0f
+        private var fingerAtX = 0f
+        private var fingerAtY = 0f
+        private var lastSwing = 0L
+        private var asked = false
+
+        private val swing = object : android.view.Choreographer.FrameCallback {
+            override fun doFrame(frameTimeNanos: Long) {
+                if (!active) return
+                val now = android.os.SystemClock.uptimeMillis()
+                val dt = if (lastSwing == 0L) 0.016f else (now - lastSwing) / 1000f
+                lastSwing = now
+                step(dt.coerceIn(0.001f, 0.05f))
+                android.view.Choreographer.getInstance().postFrameCallback(this)
+            }
+        }
+
+        /** One frame of the leash: pulled towards where it is wanted, and heavy. */
+        private fun step(dt: Float) {
+            val ax = (wantX - ballX) * STIFFNESS - ballVx * DAMPING
+            val ay = (wantY - ballY) * STIFFNESS - ballVy * DAMPING + GRAVITY * density
+            ballVx += ax * dt
+            ballVy += ay * dt
+            ballX += ballVx * dt
+            ballY += ballVy * dt
+            // Never so far behind that it is somewhere else entirely: a fling would leave
+            // the ball halfway up the screen from where the hand is.
+            val slack = LEASH_DP * density
+            val dx = ballX - wantX
+            val dy = ballY - wantY
+            val far = kotlin.math.hypot(dx, dy)
+            if (far > slack) {
+                ballX = wantX + dx / far * slack
+                ballY = wantY + dy / far * slack
+            }
+            val radius = width / 2f
+            mist?.follow(fingerAtX, fingerAtY, ballX, ballY, radius)
+            // The thread is redrawn every frame because that is what makes it move; what is
+            // under the ball is asked half as often, because a word is a hundred times the
+            // size of the distance the ball travels in a frame and reading the screen for
+            // one is not free.
+            asked = !asked
+            if (asked) hoverAt(ballX.toInt(), ballY.toInt())
+        }
 
         override fun onTouchEvent(event: MotionEvent): Boolean {
             when (event.actionMasked) {
@@ -604,6 +694,7 @@ class HoverController(
                     )
                     removeCallbacks(longPress)
                     active = false
+                    android.view.Choreographer.getInstance().removeFrameCallback(swing)
                     highlight?.mark(null)
                     // A press that went nowhere puts the circle away rather than leaving a
                     // card sitting over the conversation.
@@ -628,6 +719,8 @@ class HoverController(
                         // it, which on the emulator meant the whole machine went down.
                         mist?.onDissolved = { masked = false; main.post { hideLayer() } }
                         mist?.dissolve(home.x.toFloat(), home.y.toFloat())
+                        ballVx = 0f
+                        ballVy = 0f
                     }
                 }
             }
@@ -635,20 +728,15 @@ class HoverController(
         }
 
         /**
-         * Where the circle goes when the finger leaves: back to the nearer side, so what was
-         * being read is not left with a disc sitting in the middle of it. The card and the
-         * mark stay where they are; only the handle moves.
+         * Where the circle goes when the finger leaves: back to the side it lives on, so
+         * what was being read is not left with a disc sitting in the middle of it, and so
+         * the handle is where it was last time. The card and the mark stay where they are;
+         * only the handle moves.
          */
         fun park(): Point {
-            val screen = screenSize()
-            val margin = (16 * density).toInt()
-            val target = if (bubbleX + width / 2 < screen.width() / 2) {
-                margin
-            } else {
-                screen.width() - width - margin
-            }
+            val target = restingX(width)
             val from = bubbleX
-            val restY = bubbleY.coerceIn(0, screen.height() - height)
+            val restY = bubbleY.coerceIn(0, screenSize().height() - height)
             ValueAnimator.ofInt(from, target).apply {
                 duration = PARK_MS
                 // Comes to rest rather than stopping dead. At a constant speed a thing that
@@ -692,16 +780,24 @@ class HoverController(
             bubbleX = (event.rawX - radius).toInt()
             bubbleY = (event.rawY - radius).toInt()
             windowManager.updateViewLayout(this, bubbleParams(size))
-            val aimY = event.rawY - lift
             handY = event.rawY.toInt()
+            fingerAtX = event.rawX
+            fingerAtY = event.rawY
+            wantX = event.rawX
+            wantY = event.rawY - lift
             if (!formed) {
                 formed = true
                 masked = true
-                mist?.form(event.rawX, event.rawY, event.rawX, aimY, radius)
-            } else {
-                mist?.follow(event.rawX, event.rawY, event.rawX, aimY, radius)
+                // It starts where the hand is and is thrown up to where it is wanted, so
+                // the first thing the ball does is travel the length of the thread.
+                ballX = event.rawX
+                ballY = event.rawY
+                ballVx = 0f
+                ballVy = 0f
+                lastSwing = 0L
+                mist?.form(event.rawX, event.rawY, ballX, ballY, radius)
+                android.view.Choreographer.getInstance().postFrameCallback(swing)
             }
-            hoverAt(event.rawX.toInt(), aimY.toInt())
         }
     }
 
@@ -725,9 +821,27 @@ class HoverController(
          */
         const val CLEARANCE = 1.1f
 
+        /**
+         * How far the answer may travel and still read as the same answer moving.
+         *
+         * Sliding it further than this is worse than putting it there at once: what the eye
+         * follows is a card coming from somewhere it never belonged - below the word, on its
+         * way up - which is exactly the flicker it was meant to avoid.
+         */
+        const val NEAR_DP = 90f
+
         /** Enough of an answer to be worth reading, in dp: above the word is preferred to
          *  below it down to this, because below it is the hand. */
         const val READABLE_DP = 170f
+
+        /** How hard the thread pulls the ball towards where the hand is holding it. */
+        const val STIFFNESS = 260f
+        /** And how quickly the swing dies away. Under-damped, so it settles by swinging. */
+        const val DAMPING = 18f
+        /** The weight on the end of it, in dp a second a second. */
+        const val GRAVITY = 900f
+        /** How far behind the ball may fall before the thread is simply taut, in dp. */
+        const val LEASH_DP = 120f
 
         /** How far off a word the circle may be and still mean it. */
         const val SLACK_DP = 12f

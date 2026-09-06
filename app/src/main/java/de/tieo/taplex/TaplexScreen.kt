@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -72,6 +73,8 @@ data class UiState(
     val hoverEnabled: Boolean = false,
     /** Whether the circle comes up over every app, or only over the ones chosen below. */
     val hoverEverywhere: Boolean = true,
+    /** Which side of the screen the mark rests on, and the answer keeps away from. */
+    val markOnRight: Boolean = true,
     /** Every app with a launcher entry, and whether the circle is wanted in it. */
     val apps: List<AppChoice> = emptyList(),
     val query: String = "",
@@ -105,6 +108,7 @@ data class ScreenActions(
     val onCancelBuild: () -> Unit = {},
     val onHoverChanged: (Boolean) -> Unit = {},
     val onHoverEverywhereChanged: (Boolean) -> Unit = {},
+    val onMarkSideChanged: (Boolean) -> Unit = {},
     val onHoverAppToggled: (String) -> Unit = {},
     val onQueryChanged: (String) -> Unit = {},
     val onSearch: () -> Unit = {},
@@ -694,6 +698,30 @@ private fun HoverCard(state: UiState, actions: ScreenActions) {
  */
 @Composable
 private fun HoverScope(state: UiState, actions: ScreenActions) {
+    // Which side it lives on. One side, chosen once: a handle that moves to whichever side
+    // the hand last finished on has to be looked for every time, and the answer that keeps
+    // away from the hand moves with it.
+    Row(
+        Modifier.padding(start = 16.dp, end = 12.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            stringResource(R.string.hover_side),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f)
+        )
+        FilterChip(
+            selected = !state.markOnRight,
+            onClick = { actions.onMarkSideChanged(false) },
+            label = { Text(stringResource(R.string.hover_side_left)) }
+        )
+        Spacer(Modifier.width(8.dp))
+        FilterChip(
+            selected = state.markOnRight,
+            onClick = { actions.onMarkSideChanged(true) },
+            label = { Text(stringResource(R.string.hover_side_right)) }
+        )
+    }
     Row(
         Modifier.padding(start = 16.dp, end = 12.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically

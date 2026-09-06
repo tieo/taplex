@@ -124,6 +124,11 @@ class TaplexAccessibilityService : AccessibilityService() {
             ?.toString()
     }
 
+    /** The mark moves to the side it has just been given, without waiting for a drag. */
+    fun repark() {
+        hover?.repark()
+    }
+
     private fun hoverController(): HoverController =
         hover ?: HoverController(
             context = this,

@@ -20,6 +20,9 @@
     <string name="hover_title">Talking practice</string>
     <string name="hover_toggle">Circle over other apps</string>
     <string name="hover_explained">Drag it over a word while you read</string>
+    <string name="hover_side">Side</string>
+    <string name="hover_side_left">left</string>
+    <string name="hover_side_right">right</string>
     <string name="hover_scope_all">In every app</string>
     <string name="hover_scope_all_why">Off to choose the apps it appears in</string>
     <string name="hover_scope_none">No app chosen, so the circle appears nowhere</string>

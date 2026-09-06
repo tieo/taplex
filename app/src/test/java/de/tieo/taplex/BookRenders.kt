@@ -80,8 +80,9 @@ class BookRenders {
         build: PackService.State = PackService.State.Idle,
         hover: Boolean = false,
         everywhere: Boolean = true,
-        apps: List<AppChoice> = emptyList()
-    ) = UiState(lookup, overlay, "en", installed, build, hover, everywhere, apps)
+        apps: List<AppChoice> = emptyList(),
+        onRight: Boolean = true
+    ) = UiState(lookup, overlay, "en", installed, build, hover, everywhere, onRight, apps)
 
     @Test
     fun `main screen nothing set up`() {

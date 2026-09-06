@@ -21,6 +21,16 @@ class Prefs(context: Context) {
         set(value) = sp.edit().putBoolean(KEY_HOVER, value).apply()
 
     /**
+     * Which side of the screen the mark lives on.
+     *
+     * One side, always the same one: a handle that parks itself on whichever side the hand
+     * happened to end on is a handle that has to be found again every time.
+     */
+    var markOnRight: Boolean
+        get() = sp.getBoolean(KEY_MARK_RIGHT, true)
+        set(value) = sp.edit().putBoolean(KEY_MARK_RIGHT, value).apply()
+
+    /**
      * Whether the circle comes up over every app, which is what it does unless told
      * otherwise: reading happens wherever text is, and a reader who wants it in one app
      * says so rather than being made to name the app before anything works at all.
@@ -53,6 +63,7 @@ class Prefs(context: Context) {
         private const val KEY_TARGET = "target"
         private const val KEY_HOVER = "hover"
         private const val KEY_HOVER_ALL = "hoverEverywhere"
+        private const val KEY_MARK_RIGHT = "markOnRight"
         private const val KEY_HOVER_PACKAGES = "hoverPackages"
     }
 }
