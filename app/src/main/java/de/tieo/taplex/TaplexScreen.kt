@@ -82,6 +82,8 @@ data class UiState(
     val appQuery: String = "",
     /** How wide the mark is, in dp. */
     val markSizeDp: Int = 40,
+    /** How far in from its edge the mark sits, in dp. */
+    val markEdgeDp: Int = 16,
     /** The language chosen to learn, or null to take it from the packs installed. */
     val learningLanguage: String? = null,
     /** Whether the answer stays put when the finger lifts. */
@@ -127,6 +129,7 @@ data class ScreenActions(
     val onHoverAppToggled: (String) -> Unit = {},
     val onAppQueryChanged: (String) -> Unit = {},
     val onMarkSizeChanged: (Int) -> Unit = {},
+    val onMarkEdgeChanged: (Int) -> Unit = {},
     val onKeepChanged: (Boolean) -> Unit = {},
     val onQueryChanged: (String) -> Unit = {},
     val onSearch: () -> Unit = {},
@@ -753,6 +756,22 @@ private fun HoverScope(state: UiState, actions: ScreenActions) {
             value = state.markSizeDp.toFloat(),
             onValueChange = { actions.onMarkSizeChanged(it.toInt()) },
             valueRange = 32f..72f,
+            modifier = Modifier.width(160.dp)
+        )
+    }
+    Row(
+        Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            stringResource(R.string.hover_edge),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f)
+        )
+        Slider(
+            value = state.markEdgeDp.toFloat(),
+            onValueChange = { actions.onMarkEdgeChanged(it.toInt()) },
+            valueRange = 0f..64f,
             modifier = Modifier.width(160.dp)
         )
     }

@@ -396,8 +396,9 @@ class HoverController(
      * happened to finish on.
      */
     private fun restingX(size: Int): Int {
-        val margin = (16 * density).toInt()
-        return if (Prefs(context).markOnRight) screenSize().width() - size - margin else margin
+        val prefs = Prefs(context)
+        val margin = (prefs.markEdgeDp * density).toInt()
+        return if (prefs.markOnRight) screenSize().width() - size - margin else margin
     }
 
     private fun cardParams(x: Int, y: Int, fromBottom: Boolean = false) = WindowManager.LayoutParams(

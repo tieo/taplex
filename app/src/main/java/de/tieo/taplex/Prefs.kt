@@ -55,6 +55,11 @@ class Prefs(context: Context) {
         get() = sp.getInt(KEY_MARK_SIZE, DEFAULT_MARK_DP)
         set(value) = sp.edit().putInt(KEY_MARK_SIZE, value.coerceIn(MARK_MIN_DP, MARK_MAX_DP)).apply()
 
+    /** How far the mark sits in from the edge it lives on, in dp. */
+    var markEdgeDp: Int
+        get() = sp.getInt(KEY_MARK_EDGE, DEFAULT_EDGE_DP)
+        set(value) = sp.edit().putInt(KEY_MARK_EDGE, value.coerceIn(EDGE_MIN_DP, EDGE_MAX_DP)).apply()
+
     /**
      * The language being learned: the words a lookup answers in, and the words a spoken
      * phrase is turned into. Null means it is taken from the packs installed, which is
@@ -78,6 +83,9 @@ class Prefs(context: Context) {
         const val DEFAULT_MARK_DP = 40
         const val MARK_MIN_DP = 32
         const val MARK_MAX_DP = 72
+        const val DEFAULT_EDGE_DP = 16
+        const val EDGE_MIN_DP = 0
+        const val EDGE_MAX_DP = 64
 
         /** Where Gemini is: its own app, and the Google app surface its icon opens. */
         val GEMINI = setOf(
@@ -92,6 +100,7 @@ class Prefs(context: Context) {
         private const val KEY_MARK_RIGHT = "markOnRight"
         private const val KEY_HOVER_PACKAGES = "hoverPackages"
         private const val KEY_MARK_SIZE = "markSize"
+        private const val KEY_MARK_EDGE = "markEdge"
         private const val KEY_LEARNING = "learning"
         private const val KEY_KEEP = "keepAfterRelease"
     }

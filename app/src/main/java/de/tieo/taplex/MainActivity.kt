@@ -87,6 +87,7 @@ private fun Main() {
     }
     var appQuery by remember { mutableStateOf("") }
     var markSize by remember { mutableIntStateOf(prefs.markSizeDp) }
+    var markEdge by remember { mutableIntStateOf(prefs.markEdgeDp) }
     var keep by remember { mutableStateOf(prefs.keepAfterRelease) }
     var query by remember { mutableStateOf("") }
     var answer by remember { mutableStateOf<Explanation?>(null) }
@@ -106,7 +107,7 @@ private fun Main() {
         onDispose { owner.lifecycle.removeObserver(watcher) }
     }
 
-    val state = remember(reread, build, hovering, everywhere, onRight, chosen, apps, appQuery, markSize, keep, query, answer) {
+    val state = remember(reread, build, hovering, everywhere, onRight, chosen, apps, appQuery, markSize, markEdge, keep, query, answer) {
         UiState(
             lookupEnabled = lookupEnabled(context),
             canDrawOverlay = Settings.canDrawOverlays(context),
@@ -126,6 +127,7 @@ private fun Main() {
             apps = apps.map { it.copy(chosen = it.pkg in chosen) },
             appQuery = appQuery,
             markSizeDp = markSize,
+            markEdgeDp = markEdge,
             learningLanguage = prefs.learningLanguage,
             keepAfterRelease = keep,
             query = query,
@@ -203,6 +205,11 @@ private fun Main() {
                 prefs.markSizeDp = dp
                 markSize = prefs.markSizeDp
                 // The mark on screen takes the new size at once, not at the next drag.
+                TaplexAccessibilityService.running?.repark()
+            },
+            onMarkEdgeChanged = { dp ->
+                prefs.markEdgeDp = dp
+                markEdge = prefs.markEdgeDp
                 TaplexAccessibilityService.running?.repark()
             },
             onKeepChanged = { wanted ->
