@@ -29,7 +29,9 @@ import android.widget.TextView
  */
 open class HoverBubbleView(context: Context) : View(context) {
 
-    private val mark = ContextCompat.getDrawable(context, R.drawable.ic_launcher_foreground)
+    // The handle is the mark in one colour and see-through: parked over a conversation it
+    // stays quiet, a shape rather than a full-colour badge sitting on someone's words.
+    private val mark = ContextCompat.getDrawable(context, R.drawable.ic_launcher_monochrome)
 
     /** Whether a finger is on it: parked it stays quieter than the conversation under it. */
     var active: Boolean = false
@@ -60,7 +62,9 @@ open class HoverBubbleView(context: Context) : View(context) {
         if (masked) return
         val icon = mark ?: return
         icon.setBounds(0, 0, width, height)
-        icon.alpha = if (active) 255 else 200
+        // Solid enough to find, faint enough to read through; a touch stronger under the
+        // finger so it answers the press.
+        icon.alpha = if (active) 210 else 130
         icon.draw(canvas)
     }
 }
