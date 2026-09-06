@@ -375,6 +375,22 @@
    "uid": "STATE-HOVER-WORD"
   },
   {
+   "relations": [
+    {
+     "role": "State of",
+     "to": "VIEW-HOVER"
+    }
+   ],
+   "renders": [
+    "hover-letting-go-phone.png"
+   ],
+   "statement": "The hand has let go: the ring fades and the thread draws itself back towards the side of the screen, where the mark reappears once it has arrived. Nothing of the gesture jumps.",
+   "status": "Built",
+   "tag": "STATE",
+   "title": "Letting go",
+   "uid": "STATE-HOVER-LETTING-GO"
+  },
+  {
    "kind": "Empty",
    "relations": [
     {

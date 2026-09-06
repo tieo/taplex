@@ -267,6 +267,21 @@ class BookRenders {
     }
 
     @Test
+    fun `hover thread going home`() {
+        paparazzi.snapshot("hover-letting-go-phone") {
+            AndroidView { context ->
+                conversation(
+                    context,
+                    circleAt = HOVERED,
+                    marked = HOVERED,
+                    threadAge = 1.4f,
+                    homeward = 0.45f
+                )
+            }
+        }
+    }
+
+    @Test
     fun `hover circle parked`() {
         paparazzi.snapshot("hover-parked-phone") {
             AndroidView { context -> conversation(context, circleAt = null, marked = null) }
@@ -368,7 +383,9 @@ class BookRenders {
         marked: Rect?,
         card: ((EntryView) -> Unit)? = null,
         /** How long the thread has been running, since it looks different as it reaches. */
-        threadAge: Float = 1.4f
+        threadAge: Float = 1.4f,
+        /** How far the thread has drawn back towards the parked mark, after letting go. */
+        homeward: Float = 0f
     ): View {
         val density = context.resources.displayMetrics.density
         val frame = FrameLayout(context)
@@ -411,7 +428,10 @@ class BookRenders {
                         fingerY = ringY + lift,
                         ringX = ringX,
                         ringY = ringY,
-                        radius = size / 2f
+                        radius = size / 2f,
+                        homeward = homeward,
+                        homeX = (SOURCE_WIDTH - size).toFloat(),
+                        homeY = (SOURCE_HEIGHT / 2).toFloat()
                     )
                 },
                 FrameLayout.LayoutParams(
@@ -420,8 +440,13 @@ class BookRenders {
                 )
             )
         }
+        // While the thread is drawing itself home the mark is not on screen at all: it is
+        // the thread, and it comes back only once the thread has arrived.
         frame.addView(
-            HoverBubbleView(context).apply { active = circleAt != null },
+            HoverBubbleView(context).apply {
+                active = circleAt != null
+                masked = homeward > 0f
+            },
             FrameLayout.LayoutParams(size, size).apply {
                 // Held under the finger while dragging, parked at the side when not.
                 leftMargin = ringX?.let { (it - size / 2f).toInt() }

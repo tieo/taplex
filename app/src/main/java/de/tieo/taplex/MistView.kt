@@ -109,6 +109,11 @@ class MistView(context: Context) : View(context) {
     private var phaseStart = 0L
     private var homeX = 0f
     private var homeY = 0f
+    /** Where the hand was when it let go, which is where the thread starts drawing back. */
+    private var letGoX = 0f
+    private var letGoY = 0f
+    /** 0 at the moment of letting go, 1 once the thread is home. */
+    private var homeward = 0f
 
     /** How long the thread has been running, which is what the waves are read from. */
     private var age = 0f
@@ -161,10 +166,17 @@ class MistView(context: Context) : View(context) {
         this.ringX = ringX; this.ringY = ringY; this.ringRadius = radius
     }
 
-    /** The finger is gone: the thread draws back into the mark at [homeX],[homeY]. */
+    /**
+     * The finger is gone: the thread draws back into the mark on its way to [homeX],[homeY].
+     *
+     * Its root travels there rather than arriving there. Letting go used to move the foot of
+     * the thread from the finger to the side of the screen between one frame and the next,
+     * which is the one moment of the whole gesture the hand is watching.
+     */
     fun dissolve(homeX: Float, homeY: Float) {
         if (phase == Phase.GONE || phase == Phase.DISSOLVING) return
         this.homeX = homeX; this.homeY = homeY
+        letGoX = fingerX; letGoY = fingerY
         phase = Phase.DISSOLVING
         phaseStart = now()
     }
@@ -185,6 +197,10 @@ class MistView(context: Context) : View(context) {
         ringY: Float,
         radius: Float,
         seed: Long = 7L,
+        /** Part-way home, for the moment after the hand lets go. */
+        homeward: Float = 0f,
+        homeX: Float = fingerX,
+        homeY: Float = fingerY,
     ) {
         random = java.util.Random(seed)
         reseed()
@@ -194,6 +210,13 @@ class MistView(context: Context) : View(context) {
         val forming = (seconds * 1000f / FORM_MS).coerceIn(0f, 1f)
         presence = ease(forming)
         phase = if (forming >= 1f) Phase.LIVE else Phase.FORMING
+        this.homeward = homeward
+        if (homeward > 0f) {
+            phase = Phase.DISSOLVING
+            presence = 1f - ease(homeward)
+            letGoX = fingerX; letGoY = fingerY
+            this.homeX = homeX; this.homeY = homeY
+        }
         for (i in 0 until STRANDS) {
             riding[i] = ((riding[i] + seconds * (PULSE_MIN + (i % 3) * 0.18f)) % 1.6f) - 0.25f
         }
@@ -226,6 +249,7 @@ class MistView(context: Context) : View(context) {
             Phase.LIVE -> presence = 1f
             Phase.DISSOLVING -> {
                 val p = ((now() - phaseStart) / DISSOLVE_MS.toFloat()).coerceIn(0f, 1f)
+                homeward = ease(p)
                 presence = 1f - ease(p)
                 if (p >= 1f) {
                     val done = onDissolved
@@ -249,7 +273,12 @@ class MistView(context: Context) : View(context) {
         // Where the thread runs from: the hand while it holds the ring, the mark it is
         // being drawn back into once the hand is gone.
         val fromX: Float; val fromY: Float
-        if (phase == Phase.DISSOLVING) { fromX = homeX; fromY = homeY } else { fromX = fingerX; fromY = fingerY }
+        if (phase == Phase.DISSOLVING) {
+            fromX = letGoX + (homeX - letGoX) * homeward
+            fromY = letGoY + (homeY - letGoY) * homeward
+        } else {
+            fromX = fingerX; fromY = fingerY
+        }
         val (px, py) = perpendicular(fromX, fromY, ringX, ringY)
         val span = hypot(ringX - fromX, ringY - fromY).coerceAtLeast(1f)
 
