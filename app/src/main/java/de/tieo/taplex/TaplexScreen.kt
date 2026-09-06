@@ -2,6 +2,9 @@ package de.tieo.taplex
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,6 +28,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -65,6 +70,10 @@ data class UiState(
     val installed: List<InstalledPack>,
     val build: PackService.State,
     val hoverEnabled: Boolean = false,
+    /** Whether the circle comes up over every app, or only over the ones chosen below. */
+    val hoverEverywhere: Boolean = true,
+    /** Every app with a launcher entry, and whether the circle is wanted in it. */
+    val apps: List<AppChoice> = emptyList(),
     val query: String = "",
     val answer: Explanation? = null,
     val searching: Boolean = false
@@ -75,6 +84,9 @@ data class UiState(
     /** The language being learned, which is the words language of the pack that is in. */
     val learning: String? get() = installed.firstOrNull()?.wordLanguage
 }
+
+/** An app the circle could appear over, and whether it is one of the chosen. */
+data class AppChoice(val pkg: String, val label: String, val chosen: Boolean)
 
 /** A dictionary on the phone: which words, explained in what, how big, how many entries. */
 data class InstalledPack(
@@ -92,6 +104,8 @@ data class ScreenActions(
     val onDeleteDictionary: (InstalledPack) -> Unit = {},
     val onCancelBuild: () -> Unit = {},
     val onHoverChanged: (Boolean) -> Unit = {},
+    val onHoverEverywhereChanged: (Boolean) -> Unit = {},
+    val onHoverAppToggled: (String) -> Unit = {},
     val onQueryChanged: (String) -> Unit = {},
     val onSearch: () -> Unit = {},
     val onAddTile: (() -> Unit)? = null
@@ -667,7 +681,73 @@ private fun HoverCard(state: UiState, actions: ScreenActions) {
             Spacer(Modifier.width(8.dp))
             Switch(checked = state.hoverEnabled, onCheckedChange = actions.onHoverChanged)
         }
+        if (state.hoverEnabled) HoverScope(state, actions)
     }
+}
+
+/**
+ * Where the circle appears: everywhere, or in apps named one by one.
+ *
+ * Every app is what it does unless told otherwise. Reading happens wherever text is, and a
+ * circle that has to be told the package before it will come up at all is a circle that
+ * looks broken to anyone who has not been through this screen.
+ */
+@Composable
+private fun HoverScope(state: UiState, actions: ScreenActions) {
+    Row(
+        Modifier.padding(start = 16.dp, end = 12.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                stringResource(R.string.hover_scope_all),
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                stringResource(R.string.hover_scope_all_why),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        Switch(
+            checked = state.hoverEverywhere,
+            onCheckedChange = actions.onHoverEverywhereChanged
+        )
+    }
+    if (state.hoverEverywhere) return
+    if (state.apps.none { it.chosen }) {
+        Text(
+            stringResource(R.string.hover_scope_none),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 4.dp)
+        )
+    }
+    // The chosen ones first, so a list of two hundred apps opens on the answer rather than
+    // on the alphabet.
+    val ordered = state.apps.sortedWith(
+        compareByDescending<AppChoice> { it.chosen }.thenBy { it.label.lowercase() }
+    )
+    Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
+        for (app in ordered) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { actions.onHoverAppToggled(app.pkg) }
+                    .padding(start = 16.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    app.label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                Checkbox(checked = app.chosen, onCheckedChange = { actions.onHoverAppToggled(app.pkg) })
+            }
+        }
+    }
+    Spacer(Modifier.height(6.dp))
 }
 
 /**

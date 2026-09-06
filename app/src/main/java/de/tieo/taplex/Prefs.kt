@@ -21,7 +21,16 @@ class Prefs(context: Context) {
         set(value) = sp.edit().putBoolean(KEY_HOVER, value).apply()
 
     /**
-     * The apps the circle belongs to. A conversation happens in one app at a time and a
+     * Whether the circle comes up over every app, which is what it does unless told
+     * otherwise: reading happens wherever text is, and a reader who wants it in one app
+     * says so rather than being made to name the app before anything works at all.
+     */
+    var hoverEverywhere: Boolean
+        get() = sp.getBoolean(KEY_HOVER_ALL, true)
+        set(value) = sp.edit().putBoolean(KEY_HOVER_ALL, value).apply()
+
+    /**
+     * The apps the circle belongs to, when it does not belong to all of them. A conversation happens in one app at a time and a
      * bubble sitting over every app is in the way of all of them, but one app is not one
      * package: the Gemini icon on a Pixel opens the Google app's assistant surface, and
      * the Gemini app's own entry hands off to it, so both packages are the same
@@ -43,6 +52,7 @@ class Prefs(context: Context) {
         private const val KEY_SOURCE = "source"
         private const val KEY_TARGET = "target"
         private const val KEY_HOVER = "hover"
+        private const val KEY_HOVER_ALL = "hoverEverywhere"
         private const val KEY_HOVER_PACKAGES = "hoverPackages"
     }
 }

@@ -18,8 +18,11 @@
     <string name="tile_add">Quick settings tile</string>
     <string name="tile_add_why">One press from any screen, no accessibility button needed</string>
     <string name="hover_title">Talking practice</string>
-    <string name="hover_toggle">Circle over the Gemini app</string>
-    <string name="hover_explained">Drag it over a word while you talk</string>
+    <string name="hover_toggle">Circle over other apps</string>
+    <string name="hover_explained">Drag it over a word while you read</string>
+    <string name="hover_scope_all">In every app</string>
+    <string name="hover_scope_all_why">Off to choose the apps it appears in</string>
+    <string name="hover_scope_none">No app chosen, so the circle appears nowhere</string>
     <string name="no_pack">No %1$s dictionary installed, so nothing explains this word in %2$s.</string>
     <string name="guessed">Machine translation, not a dictionary entry.</string>
     <string name="tapped_form">tapped: %1$s</string>

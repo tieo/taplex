@@ -45,6 +45,9 @@ class HoverController(
     private val readBetterWords: suspend () -> Recognised?
 ) {
 
+    /** For work that must happen after the frame it was asked in, not during it. */
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+
     private val lookup = Lookup(context)
     private val scope = CoroutineScope(Dispatchers.Main)
     private val density = context.resources.displayMetrics.density
@@ -91,6 +94,7 @@ class HoverController(
             bubbleX = screen.width() - size - (16 * density).toInt()
             bubbleY = screen.height() / 2
         }
+        view.masked = false
         runCatching { windowManager.addView(view, bubbleParams(size)) }
             .onFailure { Journal.failed("putting the circle up", it) }
             .onSuccess { Journal.note("circle up at $bubbleX,$bubbleY") }
@@ -256,11 +260,20 @@ class HoverController(
         mist = flow
     }
 
+    /**
+     * Everything of ours off the screen, and the mark visible again.
+     *
+     * The mark is hidden for the length of a drag because it has become the thread. If the
+     * layer goes while the thread is still drawing itself home - the card was dismissed, the
+     * app changed - nothing is left to say the thread arrived, and the mark stayed invisible
+     * for good: a handle that is there, takes touches, and cannot be seen.
+     */
     private fun hideLayer() {
         cardMove?.cancel()
         cardMove = null
         card?.let { runCatching { windowManager.removeView(it) } }
         card = null
+        bubble?.masked = false
         highlight = null
         mist?.clear()
         mist = null
@@ -303,8 +316,12 @@ class HoverController(
             .setInterpolator(DecelerateInterpolator())
             .withEndAction {
                 runCatching { windowManager.removeView(view) }
-                // Nothing of ours is left over a conversation nobody is asking about.
-                if (card == null) hideLayer()
+                // Nothing of ours is left over a conversation nobody is asking about -
+                // except a thread still drawing itself home, which is taking the mark with
+                // it and is about to be gone anyway.
+                if (card == null && bubble?.active != true && mist?.isBusy != true) {
+                    main.post { hideLayer() }
+                }
             }
             .start()
     }
@@ -586,10 +603,22 @@ class HoverController(
                         closeInput()
                         hideLayer()
                     } else if (dragging) {
-                        // The current falls back into the mark where the mark comes to rest,
+                        // The answer belongs to the hand that is asking: it goes when the
+                        // hand does. What is read is read while it is held, and a card left
+                        // behind is a card over someone else's conversation.
+                        dismissCard()
+                        // The thread falls back into the mark where the mark comes to rest,
                         // and the mark reappears only once it has: no disc slides home.
                         val home = park()
-                        mist?.onDissolved = { masked = false }
+                        // Once the thread is home there is nothing left to draw, so the
+                        // layer it was drawn on goes as well: what is left over a
+                        // conversation nobody is asking about should be the mark and
+                        // nothing else.
+                        // Taken away on the next turn of the loop, not inside the frame
+                        // that finished it: a view removed from the window manager while
+                        // its own frame callback is still running takes the renderer with
+                        // it, which on the emulator meant the whole machine went down.
+                        mist?.onDissolved = { masked = false; main.post { hideLayer() } }
                         mist?.dissolve(home.x.toFloat(), home.y.toFloat())
                     }
                 }

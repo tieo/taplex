@@ -25,6 +25,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
@@ -72,6 +74,16 @@ private fun Main() {
     var reread by remember { mutableIntStateOf(0) }
     var picking by remember { mutableStateOf(false) }
     var hovering by remember { mutableStateOf(prefs.hoverEnabled) }
+    var everywhere by remember { mutableStateOf(prefs.hoverEverywhere) }
+    var chosen by remember { mutableStateOf(prefs.hoverPackages) }
+    // Every app with a launcher entry, which is what a reader means by "an app". Read off
+    // the main thread: a phone with a few hundred of them takes a moment over it.
+    var apps by remember { mutableStateOf<List<AppChoice>>(emptyList()) }
+    LaunchedEffect(hovering, everywhere) {
+        if (hovering && !everywhere && apps.isEmpty()) {
+            apps = withContext(Dispatchers.IO) { launcherApps(context) }
+        }
+    }
     var query by remember { mutableStateOf("") }
     var answer by remember { mutableStateOf<Explanation?>(null) }
     val lookup = remember { Lookup(context) }
@@ -90,7 +102,7 @@ private fun Main() {
         onDispose { owner.lifecycle.removeObserver(watcher) }
     }
 
-    val state = remember(reread, build, hovering, query, answer) {
+    val state = remember(reread, build, hovering, everywhere, chosen, apps, query, answer) {
         UiState(
             lookupEnabled = lookupEnabled(context),
             canDrawOverlay = Settings.canDrawOverlays(context),
@@ -105,6 +117,8 @@ private fun Main() {
             },
             build = build,
             hoverEnabled = hovering,
+            hoverEverywhere = everywhere,
+            apps = apps.map { it.copy(chosen = it.pkg in chosen) },
             query = query,
             answer = answer
         )
@@ -158,6 +172,15 @@ private fun Main() {
             onHoverChanged = { wanted ->
                 prefs.hoverEnabled = wanted
                 hovering = wanted
+            },
+            onHoverEverywhereChanged = { wanted ->
+                prefs.hoverEverywhere = wanted
+                everywhere = wanted
+            },
+            onHoverAppToggled = { pkg ->
+                val next = if (pkg in chosen) chosen - pkg else chosen + pkg
+                prefs.hoverPackages = next
+                chosen = next
             }
         )
     )
@@ -201,4 +224,18 @@ private fun lookupEnabled(context: Context): Boolean {
     ) ?: return false
     val name = ComponentName(context, TaplexAccessibilityService::class.java)
     return enabled.split(':').any { ComponentName.unflattenFromString(it) == name }
+}
+
+/** Everything with a launcher entry, which is what a reader thinks of as "an app". */
+private fun launcherApps(context: Context): List<AppChoice> {
+    val pm = context.packageManager
+    val main = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+    return pm.queryIntentActivities(main, 0)
+        .mapNotNull { found ->
+            val pkg = found.activityInfo?.packageName ?: return@mapNotNull null
+            if (pkg == context.packageName) return@mapNotNull null
+            AppChoice(pkg, found.loadLabel(pm)?.toString() ?: pkg, chosen = false)
+        }
+        .distinctBy { it.pkg }
+        .sortedBy { it.label.lowercase() }
 }

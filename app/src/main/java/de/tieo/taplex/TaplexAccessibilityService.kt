@@ -95,7 +95,11 @@ class TaplexAccessibilityService : AccessibilityService() {
             Journal.note("follow: event=$fromEvent front=$front, left as it was")
             return
         }
-        if (front in prefs.hoverPackages) {
+        // Every app unless the reader has narrowed it down. The circle used to be taken
+        // away by anything that was not the one named app - a dialog, a share sheet, a
+        // second package of the same conversation - which read as the mark vanishing while
+        // nothing had changed.
+        if (prefs.hoverEverywhere || front in prefs.hoverPackages) {
             val already = hover?.isUp == true
             hoverController().arm()
             if (!already) Journal.note("follow: $front is followed, circle up")

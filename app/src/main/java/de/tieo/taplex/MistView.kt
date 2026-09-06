@@ -223,6 +223,9 @@ class MistView(context: Context) : View(context) {
         invalidate()
     }
 
+    /** Whether anything is still being drawn, which is what keeps the layer alive. */
+    val isBusy: Boolean get() = phase != Phase.GONE
+
     fun clear() {
         phase = Phase.GONE
         presence = 0f
