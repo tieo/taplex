@@ -645,14 +645,23 @@ class HoverController(
         override fun onConfigurationChanged(newConfig: android.content.res.Configuration?) {
             super.onConfigurationChanged(newConfig)
             if (active) return
-            post {
-                val screen = screenSize()
-                bubbleX = restingX(width)
-                parkedY = parkedY.coerceIn(0, screen.height() - height)
-                bubbleY = parkedY
-                runCatching { windowManager.updateViewLayout(this, bubbleParams(width)) }
-                Journal.note("rotated, mark re-seated at $bubbleX,$bubbleY")
-            }
+            // Re-seat in the same frame the screen turns, not on the next one: a post would
+            // leave the mark one frame at its old coordinates, which in the new orientation
+            // is the middle of the screen. The window metrics are already the new ones here.
+            reseat()
+            // And once more after layout settles, since a rotation can report its metrics a
+            // frame late on some devices; a second seat that lands on the same place is not
+            // seen, and one that corrects a stale first is the fix.
+            post { reseat() }
+        }
+
+        private fun reseat() {
+            if (active) return
+            val screen = screenSize()
+            bubbleX = restingX(width)
+            parkedY = parkedY.coerceIn(0, screen.height() - height)
+            bubbleY = parkedY
+            runCatching { windowManager.updateViewLayout(this, bubbleParams(width)) }
         }
 
         /**
