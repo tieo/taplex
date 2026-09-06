@@ -136,7 +136,7 @@ class HoverController(
     private fun beginDrag() {
         // Whatever was answered last is gone before the screen is read, so a card of ours
         // is never in the picture that gets recognised.
-        card?.let { windowManager.removeView(it) }
+        card?.let { view -> runCatching { windowManager.removeView(view) } }
         card = null
         showLayer()
         // What was read last is kept until the new reading lands. A screen whose text has
@@ -324,7 +324,10 @@ class HoverController(
         view.animate().alpha(0f).setDuration(LEAVE_MS)
             .setInterpolator(DecelerateInterpolator())
             .withEndAction {
-                runCatching { windowManager.removeView(view) }
+                // Taken away on the next turn of the loop, like the layer: a window removed
+                // from inside the callback that finished its own animation is a surface
+                // pulled out from under the frame being drawn on it.
+                main.post { runCatching { windowManager.removeView(view) } }
                 // Nothing of ours is left over a conversation nobody is asking about -
                 // except a thread still drawing itself home, which is taking the mark with
                 // it and is about to be gone anyway.
