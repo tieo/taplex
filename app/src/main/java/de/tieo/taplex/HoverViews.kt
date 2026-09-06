@@ -232,6 +232,9 @@ open class SayInputView(context: Context) : LinearLayout(context) {
     /** Called with what was typed, when it is asked for. */
     var onSubmit: (String) -> Unit = {}
 
+    /** Opens the app to add a language, from the row of the ones there are. */
+    var onAddLanguage: (() -> Unit)? = null
+
     init {
         orientation = VERTICAL
         setBackgroundResource(R.drawable.popup_bg)
@@ -265,7 +268,7 @@ open class SayInputView(context: Context) : LinearLayout(context) {
      */
     fun setLanguages(languages: List<Pair<String, String>>, chosen: String?, onPick: (String) -> Unit) {
         chipRow.removeAllViews()
-        if (languages.size < 2) { chipStrip.visibility = GONE; return }
+        if (languages.size < 2 && onAddLanguage == null) { chipStrip.visibility = GONE; return }
         chipStrip.visibility = VISIBLE
         val pad = (12 * density).toInt()
         val gap = (6 * density).toInt()
@@ -286,6 +289,22 @@ open class SayInputView(context: Context) : LinearLayout(context) {
             )
             lp.rightMargin = gap; lp.topMargin = gap; lp.bottomMargin = gap
             chipRow.addView(chip, lp)
+        }
+        onAddLanguage?.let { add ->
+            val more = TextView(context).apply {
+                text = context.getString(R.string.say_add_language)
+                textSize = 13f
+                setTextColor(EntryView.LINK)
+                setPadding(pad, (6 * density).toInt(), pad, (6 * density).toInt())
+                setBackgroundResource(R.drawable.chip_off)
+                setOnClickListener { add() }
+            }
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            lp.rightMargin = gap; lp.topMargin = gap; lp.bottomMargin = gap
+            chipRow.addView(more, lp)
         }
     }
 

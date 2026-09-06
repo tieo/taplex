@@ -555,6 +555,16 @@ class HoverController(
             lookup.setLearning(picked)
             view.askFor(Lookup.languageName(picked))
         }
+        view.onAddLanguage = {
+            closeInput()
+            hideLayer()
+            runCatching {
+                context.startActivity(
+                    android.content.Intent(context, MainActivity::class.java)
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            }
+        }
         // Kept apart from the hover's own job: asking for a word and passing over one are
         // two questions, and neither should cancel the other.
         view.onSubmit = { phrase ->
@@ -608,6 +618,22 @@ class HoverController(
 
     /** The circle: a handle to drag, and the thing that says where the lookup is aimed. */
     private inner class BubbleView(context: Context) : HoverBubbleView(context) {
+
+        // A rotation keeps the mark's old x and y, which in the new screen is somewhere in
+        // the middle. It goes back to the side it lives on, at a y that still fits, the
+        // moment the screen turns rather than the next time it is touched.
+        override fun onConfigurationChanged(newConfig: android.content.res.Configuration?) {
+            super.onConfigurationChanged(newConfig)
+            if (active) return
+            post {
+                val screen = screenSize()
+                bubbleX = restingX(width)
+                parkedY = parkedY.coerceIn(0, screen.height() - height)
+                bubbleY = parkedY
+                runCatching { windowManager.updateViewLayout(this, bubbleParams(width)) }
+                Journal.note("rotated, mark re-seated at $bubbleX,$bubbleY")
+            }
+        }
 
         /**
          * The strip the mark occupies belongs to the mark, not to the system.

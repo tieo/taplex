@@ -12,6 +12,7 @@
     <string name="no_entry">no entry</string>
     <string name="no_translation">no %1$s word</string>
     <string name="say_prompt">Say it in %1$s</string>
+    <string name="say_add_language">＋ Language</string>
     <string name="say_hint">a word you are looking for</string>
     <string name="say_no_pack">Add a dictionary first: there is no language to say it in yet.</string>
     <string name="ways_title">Ways in</string>
