@@ -146,11 +146,18 @@ class HoverController(
         }
     }
 
-    /** Put the mark back on the side it lives on, now that the side may have changed. */
+    /**
+     * Re-seat the mark for a side or a size that has just been set, without waiting for a
+     * drag: the point of choosing was to see it take.
+     */
     fun repark() {
         val view = bubble ?: return
-        val size = (BUBBLE_DP * density).toInt()
+        if (view.active) return
+        val size = markPx()
+        val screen = screenSize()
         bubbleX = restingX(size)
+        parkedY = parkedY.coerceIn(0, screen.height() - size)
+        bubbleY = parkedY
         runCatching { windowManager.updateViewLayout(view, bubbleParams(size)) }
     }
 

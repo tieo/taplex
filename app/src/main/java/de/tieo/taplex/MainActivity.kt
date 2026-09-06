@@ -202,6 +202,8 @@ private fun Main() {
             onMarkSizeChanged = { dp ->
                 prefs.markSizeDp = dp
                 markSize = prefs.markSizeDp
+                // The mark on screen takes the new size at once, not at the next drag.
+                TaplexAccessibilityService.running?.repark()
             },
             onKeepChanged = { wanted ->
                 prefs.keepAfterRelease = wanted
