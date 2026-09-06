@@ -87,6 +87,7 @@ private fun Main() {
     }
     var appQuery by remember { mutableStateOf("") }
     var markSize by remember { mutableIntStateOf(prefs.markSizeDp) }
+    var keep by remember { mutableStateOf(prefs.keepAfterRelease) }
     var query by remember { mutableStateOf("") }
     var answer by remember { mutableStateOf<Explanation?>(null) }
     val lookup = remember { Lookup(context) }
@@ -105,7 +106,7 @@ private fun Main() {
         onDispose { owner.lifecycle.removeObserver(watcher) }
     }
 
-    val state = remember(reread, build, hovering, everywhere, onRight, chosen, apps, appQuery, markSize, query, answer) {
+    val state = remember(reread, build, hovering, everywhere, onRight, chosen, apps, appQuery, markSize, keep, query, answer) {
         UiState(
             lookupEnabled = lookupEnabled(context),
             canDrawOverlay = Settings.canDrawOverlays(context),
@@ -126,6 +127,7 @@ private fun Main() {
             appQuery = appQuery,
             markSizeDp = markSize,
             learningLanguage = prefs.learningLanguage,
+            keepAfterRelease = keep,
             query = query,
             answer = answer
         )
@@ -200,6 +202,10 @@ private fun Main() {
             onMarkSizeChanged = { dp ->
                 prefs.markSizeDp = dp
                 markSize = prefs.markSizeDp
+            },
+            onKeepChanged = { wanted ->
+                prefs.keepAfterRelease = wanted
+                keep = wanted
             }
         )
     )

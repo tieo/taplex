@@ -64,6 +64,15 @@ class Prefs(context: Context) {
         get() = sp.getString(KEY_LEARNING, null)
         set(value) = sp.edit().putString(KEY_LEARNING, value).apply()
 
+    /**
+     * Whether the answer stays put when the finger lifts, rather than leaving with the
+     * hand. Off by default: an answer left over a conversation is a card over someone
+     * else's words. On, for a reader who wants to keep looking at what came back.
+     */
+    var keepAfterRelease: Boolean
+        get() = sp.getBoolean(KEY_KEEP, false)
+        set(value) = sp.edit().putBoolean(KEY_KEEP, value).apply()
+
     companion object {
         const val AUTO = "auto"
         const val DEFAULT_MARK_DP = 40
@@ -84,5 +93,6 @@ class Prefs(context: Context) {
         private const val KEY_HOVER_PACKAGES = "hoverPackages"
         private const val KEY_MARK_SIZE = "markSize"
         private const val KEY_LEARNING = "learning"
+        private const val KEY_KEEP = "keepAfterRelease"
     }
 }

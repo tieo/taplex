@@ -84,6 +84,8 @@ data class UiState(
     val markSizeDp: Int = 40,
     /** The language chosen to learn, or null to take it from the packs installed. */
     val learningLanguage: String? = null,
+    /** Whether the answer stays put when the finger lifts. */
+    val keepAfterRelease: Boolean = false,
     val query: String = "",
     val answer: Explanation? = null,
     val searching: Boolean = false
@@ -125,6 +127,7 @@ data class ScreenActions(
     val onHoverAppToggled: (String) -> Unit = {},
     val onAppQueryChanged: (String) -> Unit = {},
     val onMarkSizeChanged: (Int) -> Unit = {},
+    val onKeepChanged: (Boolean) -> Unit = {},
     val onQueryChanged: (String) -> Unit = {},
     val onSearch: () -> Unit = {},
     val onAddTile: (() -> Unit)? = null
@@ -752,6 +755,18 @@ private fun HoverScope(state: UiState, actions: ScreenActions) {
             valueRange = 32f..72f,
             modifier = Modifier.width(160.dp)
         )
+    }
+    Row(
+        Modifier.padding(start = 16.dp, end = 12.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            stringResource(R.string.hover_keep),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(Modifier.width(8.dp))
+        Switch(checked = state.keepAfterRelease, onCheckedChange = actions.onKeepChanged)
     }
     Row(
         Modifier.padding(start = 16.dp, end = 12.dp, bottom = 6.dp),

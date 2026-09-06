@@ -83,6 +83,9 @@ class HoverController(
     /** Where the bubble sits when it is put up, and where it stays when a drag ends. */
     private var bubbleX = -1
     private var bubbleY = -1
+    /** Where the mark rests when no keyboard is pushing it up. */
+    private var parkedY = -1
+    private var keyboardShift = 0
 
     val isUp: Boolean get() = bubble != null
 
@@ -97,11 +100,50 @@ class HoverController(
         val screen = screenSize()
         bubbleX = restingX(size)
         if (bubbleY <= 0) bubbleY = screen.height() / 2
+        parkedY = bubbleY
         view.masked = false
         runCatching { windowManager.addView(view, bubbleParams(size)) }
             .onFailure { Journal.failed("putting the circle up", it) }
             .onSuccess { Journal.note("circle up at $bubbleX,$bubbleY") }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            view.setOnApplyWindowInsetsListener { _, insets ->
+                onKeyboard(insets.getInsets(android.view.WindowInsets.Type.ime()).bottom)
+                insets
+            }
+            view.requestApplyInsets()
+        }
         bubble = view
+    }
+
+    /**
+     * The keyboard has opened or closed. If it would sit over the parked mark, the mark
+     * rides up just above it, and comes back down when it goes. The mark being dragged is
+     * left alone: it is under a finger, not resting.
+     */
+    private fun onKeyboard(imeBottomPx: Int) {
+        val view = bubble ?: return
+        if (view.active) return
+        val screen = screenSize()
+        val keyboardTop = screen.height() - imeBottomPx
+        val wanted = if (imeBottomPx > 0 && parkedY + view.height > keyboardTop) {
+            (keyboardTop - view.height - (8 * density).toInt()).coerceAtLeast(0)
+        } else {
+            parkedY
+        }
+        if (wanted == bubbleY) return
+        Journal.note("keyboard $imeBottomPx px, mark $bubbleY -> $wanted")
+        val from = bubbleY
+        keyboardShift = imeBottomPx
+        ValueAnimator.ofInt(from, wanted).apply {
+            duration = 180
+            interpolator = DecelerateInterpolator(1.6f)
+            addUpdateListener {
+                if (!view.isAttachedToWindow || view.active) return@addUpdateListener
+                bubbleY = it.animatedValue as Int
+                windowManager.updateViewLayout(view, bubbleParams(view.width))
+            }
+            start()
+        }
     }
 
     /** Put the mark back on the side it lives on, now that the side may have changed. */
@@ -279,11 +321,13 @@ class HoverController(
      * app changed - nothing is left to say the thread arrived, and the mark stayed invisible
      * for good: a handle that is there, takes touches, and cannot be seen.
      */
-    private fun hideLayer() {
+    private fun hideLayer(keepCard: Boolean = false) {
         cardMove?.cancel()
         cardMove = null
-        card?.let { runCatching { windowManager.removeView(it) } }
-        card = null
+        if (!keepCard) {
+            card?.let { runCatching { windowManager.removeView(it) } }
+            card = null
+        }
         bubble?.masked = false
         highlight = null
         mist?.clear()
@@ -696,10 +740,11 @@ class HoverController(
                         closeInput()
                         hideLayer()
                     } else if (dragging) {
-                        // The answer belongs to the hand that is asking: it goes when the
-                        // hand does. What is read is read while it is held, and a card left
-                        // behind is a card over someone else's conversation.
-                        dismissCard()
+                        // The answer belongs to the hand that is asking and goes when the
+                        // hand does, unless the reader has asked to keep it: then the card
+                        // stays where it is and only the thread and the mark go home.
+                        val keep = Prefs(context).keepAfterRelease && card != null
+                        if (!keep) dismissCard()
                         // The thread falls back into the mark where the mark comes to rest,
                         // and the mark reappears only once it has: no disc slides home.
                         val home = park()
@@ -711,7 +756,7 @@ class HoverController(
                         // that finished it: a view removed from the window manager while
                         // its own frame callback is still running takes the renderer with
                         // it, which on the emulator meant the whole machine went down.
-                        mist?.onDissolved = { masked = false; main.post { hideLayer() } }
+                        mist?.onDissolved = { masked = false; main.post { hideLayer(keepCard = keep) } }
                         mist?.dissolve(home.x.toFloat(), home.y.toFloat())
                         ballVx = 0f
                         ballVy = 0f
@@ -731,6 +776,7 @@ class HoverController(
             val target = restingX(width)
             val from = bubbleX
             val restY = bubbleY.coerceIn(0, screenSize().height() - height)
+            parkedY = restY
             ValueAnimator.ofInt(from, target).apply {
                 duration = PARK_MS
                 // Comes to rest rather than stopping dead. At a constant speed a thing that
