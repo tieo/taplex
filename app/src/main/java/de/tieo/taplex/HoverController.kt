@@ -361,9 +361,9 @@ class HoverController(
             // the card too, and the drag is about to replace what is in it anyway.
             if (bubble?.active != true) dismissCard()
         }
-        windowManager.addView(view, cardParams(0, 0))
-        view.animate().alpha(1f).setDuration(ENTER_MS)
-            .setInterpolator(DecelerateInterpolator()).start()
+        // Added off to one side and invisible, not at the top-left corner where a card
+        // placed at 0,0 would otherwise flash before it is moved onto the word.
+        windowManager.addView(view, cardParams(-10000, 0))
         card = view
         return view
     }
@@ -480,6 +480,12 @@ class HoverController(
                 windowManager.updateViewLayout(view, params.apply { height = room })
             }
             view.scrollTo(0, 0)
+            // The card becomes visible only now, placed and sized: never a frame of it
+            // sitting below the word before it settles above the circle.
+            if (view.alpha < 1f) {
+                view.animate().alpha(1f).setDuration(ENTER_MS)
+                    .setInterpolator(DecelerateInterpolator()).start()
+            }
         }
     }
 
@@ -623,7 +629,13 @@ class HoverController(
             back?.let { input?.findOnBackInvokedDispatcher()?.unregisterOnBackInvokedCallback(it) }
         }
         back = null
-        input?.let { windowManager.removeView(it) }
+        input?.let { view ->
+            // Removing the window does not always take the keyboard with it, and a keyboard
+            // left up over a conversation with nothing to type into is the field half gone.
+            val imm = context.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+            imm?.hideSoftInputFromWindow(view.windowToken, 0)
+            windowManager.removeView(view)
+        }
         input = null
     }
 
