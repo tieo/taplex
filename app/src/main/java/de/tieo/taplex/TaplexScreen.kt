@@ -37,6 +37,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -77,6 +78,12 @@ data class UiState(
     val markOnRight: Boolean = true,
     /** Every app with a launcher entry, and whether the circle is wanted in it. */
     val apps: List<AppChoice> = emptyList(),
+    /** What is typed into the app filter, so a list of hundreds is not scrolled. */
+    val appQuery: String = "",
+    /** How wide the mark is, in dp. */
+    val markSizeDp: Int = 40,
+    /** The language chosen to learn, or null to take it from the packs installed. */
+    val learningLanguage: String? = null,
     val query: String = "",
     val answer: Explanation? = null,
     val searching: Boolean = false
@@ -84,8 +91,14 @@ data class UiState(
     /** Nothing is missing: a lookup would work right now. */
     val ready: Boolean get() = lookupEnabled && canDrawOverlay && installed.isNotEmpty()
 
-    /** The language being learned, which is the words language of the pack that is in. */
-    val learning: String? get() = installed.firstOrNull()?.wordLanguage
+    /**
+     * The language being learned: the one chosen, else a foreign pack rather than the
+     * language the phone already reads, else whatever single pack there is.
+     */
+    val learning: String? get() =
+        learningLanguage?.takeIf { l -> installed.any { it.wordLanguage == l } }
+            ?: installed.map { it.wordLanguage }.firstOrNull { it != glossLanguage }
+            ?: installed.firstOrNull()?.wordLanguage
 }
 
 /** An app the circle could appear over, and whether it is one of the chosen. */
@@ -110,6 +123,8 @@ data class ScreenActions(
     val onHoverEverywhereChanged: (Boolean) -> Unit = {},
     val onMarkSideChanged: (Boolean) -> Unit = {},
     val onHoverAppToggled: (String) -> Unit = {},
+    val onAppQueryChanged: (String) -> Unit = {},
+    val onMarkSizeChanged: (Int) -> Unit = {},
     val onQueryChanged: (String) -> Unit = {},
     val onSearch: () -> Unit = {},
     val onAddTile: (() -> Unit)? = null
@@ -723,6 +738,22 @@ private fun HoverScope(state: UiState, actions: ScreenActions) {
         )
     }
     Row(
+        Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            stringResource(R.string.hover_size),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f)
+        )
+        Slider(
+            value = state.markSizeDp.toFloat(),
+            onValueChange = { actions.onMarkSizeChanged(it.toInt()) },
+            valueRange = 32f..72f,
+            modifier = Modifier.width(160.dp)
+        )
+    }
+    Row(
         Modifier.padding(start = 16.dp, end = 12.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -752,11 +783,20 @@ private fun HoverScope(state: UiState, actions: ScreenActions) {
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 4.dp)
         )
     }
-    // The chosen ones first, so a list of two hundred apps opens on the answer rather than
-    // on the alphabet.
-    val ordered = state.apps.sortedWith(
-        compareByDescending<AppChoice> { it.chosen }.thenBy { it.label.lowercase() }
+    OutlinedTextField(
+        value = state.appQuery,
+        onValueChange = actions.onAppQueryChanged,
+        singleLine = true,
+        shape = RoundedCornerShape(14.dp),
+        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+        placeholder = { Text(stringResource(R.string.hover_scope_search)) },
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, bottom = 6.dp)
     )
+    // The chosen ones first, so a list of two hundred apps opens on the answer rather than
+    // on the alphabet; the filter narrows it to the one being looked for.
+    val ordered = state.apps
+        .filter { state.appQuery.isBlank() || it.label.contains(state.appQuery, ignoreCase = true) }
+        .sortedWith(compareByDescending<AppChoice> { it.chosen }.thenBy { it.label.lowercase() })
     Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
         for (app in ordered) {
             Row(

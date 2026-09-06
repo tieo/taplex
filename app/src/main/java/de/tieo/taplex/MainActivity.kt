@@ -85,6 +85,8 @@ private fun Main() {
             apps = withContext(Dispatchers.IO) { launcherApps(context) }
         }
     }
+    var appQuery by remember { mutableStateOf("") }
+    var markSize by remember { mutableIntStateOf(prefs.markSizeDp) }
     var query by remember { mutableStateOf("") }
     var answer by remember { mutableStateOf<Explanation?>(null) }
     val lookup = remember { Lookup(context) }
@@ -103,7 +105,7 @@ private fun Main() {
         onDispose { owner.lifecycle.removeObserver(watcher) }
     }
 
-    val state = remember(reread, build, hovering, everywhere, onRight, chosen, apps, query, answer) {
+    val state = remember(reread, build, hovering, everywhere, onRight, chosen, apps, appQuery, markSize, query, answer) {
         UiState(
             lookupEnabled = lookupEnabled(context),
             canDrawOverlay = Settings.canDrawOverlays(context),
@@ -121,6 +123,9 @@ private fun Main() {
             hoverEverywhere = everywhere,
             markOnRight = onRight,
             apps = apps.map { it.copy(chosen = it.pkg in chosen) },
+            appQuery = appQuery,
+            markSizeDp = markSize,
+            learningLanguage = prefs.learningLanguage,
             query = query,
             answer = answer
         )
@@ -190,6 +195,11 @@ private fun Main() {
                 val next = if (pkg in chosen) chosen - pkg else chosen + pkg
                 prefs.hoverPackages = next
                 chosen = next
+            },
+            onAppQueryChanged = { appQuery = it },
+            onMarkSizeChanged = { dp ->
+                prefs.markSizeDp = dp
+                markSize = prefs.markSizeDp
             }
         )
     )

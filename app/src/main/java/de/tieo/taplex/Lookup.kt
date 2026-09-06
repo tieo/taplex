@@ -59,12 +59,22 @@ class Lookup(private val context: Context) {
      * in English, and reading one of those screens would otherwise answer "the word for
      * this in English" with the English word.
      */
-    fun learningLanguage(): String? =
-        sourceLanguage?.takeIf { it != glossLanguage }
-            ?: Dictionary.installed(context)
-                .filter { it.first == glossLanguage }
-                .map { it.second }
-                .singleOrNull()
+    fun learningLanguage(): String? {
+        val installed = Dictionary.installed(context)
+            .filter { it.first == glossLanguage }
+            .map { it.second }
+        // A choice that was made wins, then the language on screen if it is a foreign one,
+        // then a foreign pack, then whatever single pack there is.
+        prefs.learningLanguage?.takeIf { it in installed }?.let { return it }
+        return sourceLanguage?.takeIf { it != glossLanguage && it in installed }
+            ?: installed.firstOrNull { it != glossLanguage }
+            ?: installed.firstOrNull()
+    }
+
+    /** Names the language a lookup answers in, so a screen with two packs can choose. */
+    fun setLearning(language: String) {
+        prefs.learningLanguage = language
+    }
 
     /**
      * [term] as the pack explains it, with a machine translation only where the pack has no

@@ -14,7 +14,9 @@ import android.view.View
 import android.view.animation.DecelerateInterpolator
 import androidx.core.content.ContextCompat
 import android.view.inputmethod.EditorInfo
+import android.graphics.Typeface
 import android.widget.EditText
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
 
@@ -209,6 +211,14 @@ open class SayInputView(context: Context) : LinearLayout(context) {
         textSize = 13f
     }
 
+    /** The languages a word can be asked for in, when there is more than one to choose. */
+    private val chipRow = LinearLayout(context).apply { orientation = HORIZONTAL }
+    private val chipStrip = HorizontalScrollView(context).apply {
+        isHorizontalScrollBarEnabled = false
+        addView(chipRow)
+        visibility = GONE
+    }
+
     val field = EditText(context).apply {
         setTextColor(Color.WHITE)
         setHintTextColor(EntryView.MUTED)
@@ -229,6 +239,7 @@ open class SayInputView(context: Context) : LinearLayout(context) {
         setPadding(pad, pad, pad, pad)
         gravity = Gravity.START
         addView(prompt)
+        addView(chipStrip)
         addView(field)
         addView(answer)
         field.setOnEditorActionListener { _, actionId, event ->
@@ -246,6 +257,36 @@ open class SayInputView(context: Context) : LinearLayout(context) {
     /** Says which language the answer will come back in, since that is the whole question. */
     fun askFor(language: String) {
         prompt.text = context.getString(R.string.say_prompt, language)
+    }
+
+    /**
+     * The languages there is a dictionary to answer in. With one there is nothing to
+     * choose and the row stays hidden; with more, each is a chip and the chosen one is lit.
+     */
+    fun setLanguages(languages: List<Pair<String, String>>, chosen: String?, onPick: (String) -> Unit) {
+        chipRow.removeAllViews()
+        if (languages.size < 2) { chipStrip.visibility = GONE; return }
+        chipStrip.visibility = VISIBLE
+        val pad = (12 * density).toInt()
+        val gap = (6 * density).toInt()
+        for ((code, name) in languages) {
+            val lit = code == chosen
+            val chip = TextView(context).apply {
+                text = name
+                textSize = 13f
+                setTypeface(typeface, if (lit) Typeface.BOLD else Typeface.NORMAL)
+                setTextColor(if (lit) android.graphics.Color.WHITE else EntryView.MUTED)
+                setPadding(pad, (6 * density).toInt(), pad, (6 * density).toInt())
+                setBackgroundResource(if (lit) R.drawable.chip_on else R.drawable.chip_off)
+                setOnClickListener { onPick(code) }
+            }
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            lp.rightMargin = gap; lp.topMargin = gap; lp.bottomMargin = gap
+            chipRow.addView(chip, lp)
+        }
     }
 
     /**

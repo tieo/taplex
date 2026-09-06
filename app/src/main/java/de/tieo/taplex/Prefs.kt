@@ -50,8 +50,25 @@ class Prefs(context: Context) {
         get() = sp.getStringSet(KEY_HOVER_PACKAGES, null) ?: GEMINI
         set(value) = sp.edit().putStringSet(KEY_HOVER_PACKAGES, value).apply()
 
+    /** How wide the mark and its circle are, in dp: some hands want a bigger target. */
+    var markSizeDp: Int
+        get() = sp.getInt(KEY_MARK_SIZE, DEFAULT_MARK_DP)
+        set(value) = sp.edit().putInt(KEY_MARK_SIZE, value.coerceIn(MARK_MIN_DP, MARK_MAX_DP)).apply()
+
+    /**
+     * The language being learned: the words a lookup answers in, and the words a spoken
+     * phrase is turned into. Null means it is taken from the packs installed, which is
+     * right until more than one foreign pack makes it a choice.
+     */
+    var learningLanguage: String?
+        get() = sp.getString(KEY_LEARNING, null)
+        set(value) = sp.edit().putString(KEY_LEARNING, value).apply()
+
     companion object {
         const val AUTO = "auto"
+        const val DEFAULT_MARK_DP = 40
+        const val MARK_MIN_DP = 32
+        const val MARK_MAX_DP = 72
 
         /** Where Gemini is: its own app, and the Google app surface its icon opens. */
         val GEMINI = setOf(
@@ -65,5 +82,7 @@ class Prefs(context: Context) {
         private const val KEY_HOVER_ALL = "hoverEverywhere"
         private const val KEY_MARK_RIGHT = "markOnRight"
         private const val KEY_HOVER_PACKAGES = "hoverPackages"
+        private const val KEY_MARK_SIZE = "markSize"
+        private const val KEY_LEARNING = "learning"
     }
 }

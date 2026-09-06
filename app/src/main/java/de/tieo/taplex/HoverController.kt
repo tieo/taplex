@@ -86,12 +86,14 @@ class HoverController(
 
     val isUp: Boolean get() = bubble != null
 
+    private fun markPx(): Int = (Prefs(context).markSizeDp * density).toInt()
+
     fun arm() {
         if (bubble != null) return
         // Read once as the circle appears, so the first drag has something to answer with.
         refresh()
         val view = BubbleView(context)
-        val size = (BUBBLE_DP * density).toInt()
+        val size = markPx()
         val screen = screenSize()
         bubbleX = restingX(size)
         if (bubbleY <= 0) bubbleY = screen.height() / 2
@@ -210,7 +212,7 @@ class HoverController(
 
     private fun hoverAt(x: Int, y: Int) {
         aim = Point(x, y)
-        aimRadius = ((BUBBLE_DP * density) / 2f).toInt()
+        aimRadius = markPx() / 2
         val word = wordAt(x, y)
         if (word === hovered) return
         hovered = word
@@ -500,7 +502,15 @@ class HoverController(
                 return super.dispatchKeyEvent(event)
             }
         }
-        view.askFor(Lookup.languageName(learning()))
+        val here = learning()
+        view.askFor(Lookup.languageName(here))
+        val langs = Dictionary.installed(context)
+            .filter { it.first == lookup.glossLanguage }
+            .map { it.second }
+        view.setLanguages(langs.map { it to Lookup.languageName(it) }, here) { picked ->
+            lookup.setLearning(picked)
+            view.askFor(Lookup.languageName(picked))
+        }
         // Kept apart from the hover's own job: asking for a word and passing over one are
         // two questions, and neither should cancel the other.
         view.onSubmit = { phrase ->

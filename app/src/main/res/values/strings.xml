@@ -25,6 +25,8 @@
     <string name="hover_side_right">right</string>
     <string name="hover_scope_all">In every app</string>
     <string name="hover_scope_all_why">Off to choose the apps it appears in</string>
+    <string name="hover_size">Size</string>
+    <string name="hover_scope_search">Search apps</string>
     <string name="hover_scope_none">No app chosen, so the circle appears nowhere</string>
     <string name="no_pack">no %1$s dictionary</string>
     <string name="guessed">translated</string>
