@@ -64,9 +64,26 @@ class TaplexAccessibilityService : AccessibilityService() {
      * value pulls the circle away in the middle of a conversation that never left.
      */
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
-        follow(event.packageName?.toString())
+        event ?: return
+        // The keyboard opening or closing is a windows change, not a state change; the
+        // overlay the mark lives in is never told about it, so the mark is moved from here,
+        // where the keyboard window can actually be seen.
+        hover?.onKeyboard(imeHeight())
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            follow(event.packageName?.toString())
+        }
     }
+
+    /** How tall the keyboard is right now, or zero when there is none up. */
+    private fun imeHeight(): Int =
+        runCatching {
+            windows.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+                ?.let { window ->
+                    val bounds = android.graphics.Rect()
+                    window.getBoundsInScreen(bounds)
+                    bounds.height()
+                } ?: 0
+        }.getOrDefault(0)
 
     /**
      * Puts the circle up if the app it belongs to is in front, and takes it away if not.

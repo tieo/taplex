@@ -105,13 +105,6 @@ class HoverController(
         runCatching { windowManager.addView(view, bubbleParams(size)) }
             .onFailure { Journal.failed("putting the circle up", it) }
             .onSuccess { Journal.note("circle up at $bubbleX,$bubbleY") }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            view.setOnApplyWindowInsetsListener { _, insets ->
-                onKeyboard(insets.getInsets(android.view.WindowInsets.Type.ime()).bottom)
-                insets
-            }
-            view.requestApplyInsets()
-        }
         bubble = view
     }
 
@@ -120,7 +113,7 @@ class HoverController(
      * rides up just above it, and comes back down when it goes. The mark being dragged is
      * left alone: it is under a finger, not resting.
      */
-    private fun onKeyboard(imeBottomPx: Int) {
+    fun onKeyboard(imeBottomPx: Int) {
         val view = bubble ?: return
         if (view.active) return
         val screen = screenSize()
