@@ -75,9 +75,11 @@ class TaplexAccessibilityService : AccessibilityService() {
         // A page held in another language follows the one underneath: what scrolled or
         // changed has moved its lines, and they are read again where they are now.
         when (event.eventType) {
-            AccessibilityEvent.TYPE_VIEW_SCROLLED,
+            AccessibilityEvent.TYPE_VIEW_SCROLLED ->
+                hover?.onContentChanged(scrolled = true)
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
-            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> hover?.onContentChanged()
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ->
+                hover?.onContentChanged(scrolled = false)
         }
     }
 

@@ -59,6 +59,14 @@ class PageOverlayView(context: Context) : View(context) {
         invalidate()
     }
 
+    /** Nothing at all, which is what a page being moved should have over it. */
+    fun blank() {
+        if (lines.isEmpty() && message == null) return
+        lines = emptyList()
+        message = null
+        invalidate()
+    }
+
     /** The lines as they stand now. Called again on every scroll, with the new places. */
     fun show(found: List<Line>) {
         lines = found
