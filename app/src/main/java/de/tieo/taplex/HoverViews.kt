@@ -241,27 +241,35 @@ open class SayInputView(context: Context) : LinearLayout(context) {
      * Says the phrase instead of typing it. It sits at the end of the field it fills, which
      * is where a microphone means "speak this" rather than anything about the panel.
      */
-    private val mic = android.widget.ImageView(context).apply {
-        setImageResource(R.drawable.ic_mic)
-        imageTintList = android.content.res.ColorStateList.valueOf(EntryView.MUTED)
-        val p = (8 * density).toInt()
-        setPadding(p, p, 0, p)
-    }
+    private val mic = button(R.drawable.ic_mic)
 
     /** Opens the app, where languages are added and everything else is set. */
-    private val settings = android.widget.ImageView(context).apply {
-        setImageResource(R.drawable.ic_gear)
+    private val settings = button(R.drawable.ic_gear)
+
+    /**
+     * The two controls are built the same and laid out the same: one square each, the same
+     * size, at the same distance from the edge, so they sit one above the other in a column
+     * rather than at two sizes in two places.
+     */
+    private fun button(drawable: Int) = android.widget.ImageView(context).apply {
+        setImageResource(drawable)
         imageTintList = android.content.res.ColorStateList.valueOf(EntryView.MUTED)
-        val p = (6 * density).toInt()
-        setPadding(p, p, 0, p)
+        scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+        val p = ((TOUCH_DP - ICON_DP) / 2 * density).toInt()
+        setPadding(p, p, p, p)
     }
+
+    private fun square() = LayoutParams(
+        (TOUCH_DP * density).toInt(),
+        (TOUCH_DP * density).toInt()
+    )
 
     /** The top line: what will be answered, and a way through to the app's settings. */
     private val header = LinearLayout(context).apply {
         orientation = HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         addView(prompt, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
-        addView(settings, LayoutParams((22 * density).toInt(), (22 * density).toInt()))
+        addView(settings, square())
     }
 
     /** The field and, at the end of it, the microphone that fills it. */
@@ -269,7 +277,13 @@ open class SayInputView(context: Context) : LinearLayout(context) {
         orientation = HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         addView(field, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
-        addView(mic, LayoutParams((30 * density).toInt(), (30 * density).toInt()))
+        addView(mic, square())
+    }
+
+    private companion object {
+        /** The square each control is given, and the drawing set inside it, in dp. */
+        const val TOUCH_DP = 40f
+        const val ICON_DP = 22f
     }
 
     /** Called with what was typed, when it is asked for. */
