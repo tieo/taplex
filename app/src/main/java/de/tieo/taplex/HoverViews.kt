@@ -233,6 +233,10 @@ open class SayInputView(context: Context) : LinearLayout(context) {
         // teal, so the field looks like Taplex and not like a stray text box.
         backgroundTintList = android.content.res.ColorStateList.valueOf(0xFF4C9AFF.toInt())
         highlightColor = 0x554C9AFF
+        // A text field carries its own indent, which set the typed word in from the line
+        // above it and from the answer below it: three left edges down one small panel.
+        // The panel's own padding is the only one wanted, so the field's goes.
+        setPadding(0, paddingTop, 0, paddingBottom)
     }
 
     private val answer = EntryView(context).apply { visibility = GONE }
