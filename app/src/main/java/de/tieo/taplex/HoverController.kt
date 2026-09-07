@@ -1006,12 +1006,16 @@ class HoverController(
     private fun draw(view: PageOverlayView, blocks: List<Block>) {
         val lines = blocks.mapNotNull { block ->
             val answer = said[block.text] ?: return@mapNotNull null
-            val style = styles[block.text]
+            // A run whose colours have not been read off the screen yet is left as it is
+            // for now. Drawn in a guessed white it is a bright patch in the middle of a
+            // page that is not white, which is worse than the line simply not being
+            // translated for the moment it takes to picture the screen.
+            val style = styles[block.text] ?: return@mapNotNull null
             PageOverlayView.Line(
                 bounds = block.cover,
                 text = answer,
-                background = style?.first ?: PLAIN_BACKGROUND,
-                ink = style?.second ?: PLAIN_INK,
+                background = style.first,
+                ink = style.second,
                 lineHeight = block.lineHeight,
                 tight = block.tight,
             )
@@ -1588,14 +1592,6 @@ class HoverController(
 
         /** How far off a word the circle may be and still mean it. */
         const val SLACK_DP = 12f
-
-        /**
-         * What a replaced line is drawn in when the screen could not be read for its
-         * colours, which is a picture the system refused rather than anything about the
-         * page. Dark on light is the safer guess: it is what most things being read are.
-         */
-        const val PLAIN_BACKGROUND = 0xFFFFFFFF.toInt()
-        const val PLAIN_INK = 0xFF101418.toInt()
 
         /** How long after the last thing heard the page is read once more, settled. */
         const val SETTLE_MS = 260L
