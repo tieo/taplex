@@ -67,11 +67,19 @@ object Ocr {
                 }
             }
             val bounds = block.boundingBox ?: continue
-            val rows = block.lines.size.coerceAtLeast(1)
+            // How tall one line's letters actually are, taken from the lines themselves
+            // rather than by dividing the block: a block's height carries the space between
+            // its lines as well, and type set from that comes out too small.
+            val heights = block.lines.mapNotNull { it.boundingBox?.height() }.sorted()
+            val glyphs = if (heights.isEmpty()) {
+                bounds.height() / block.lines.size.coerceAtLeast(1)
+            } else {
+                heights[heights.size / 2]
+            }
             paragraphs += TextBlock(
                 text = block.lines.joinToString(" ") { it.text }.trim(),
                 bounds = bounds,
-                lineHeight = bounds.height() / rows
+                lineHeight = glyphs
             )
         }
         return Recognised(words, result.text, result.textBlocks.map { it.text }, paragraphs)

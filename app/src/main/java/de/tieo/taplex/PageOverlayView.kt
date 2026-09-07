@@ -37,6 +37,12 @@ class PageOverlayView(context: Context) : View(context) {
         val ink: Int,
         /** How tall one line of the original was, which is what the type is set from. */
         val lineHeight: Int = 0,
+        /**
+         * Whether [lineHeight] is the letters themselves rather than the box a view drew
+         * them in. A recogniser measures the ink; a view reports a box with its own padding
+         * around it, and the same number means a different size of type in each case.
+         */
+        val tight: Boolean = false,
     )
 
     private val density = context.resources.displayMetrics.density
@@ -91,7 +97,7 @@ class PageOverlayView(context: Context) : View(context) {
             // Set from one of the original's own lines, not from the whole run: a
             // paragraph's box is many lines tall and type sized to it would be enormous.
             val tall = if (line.lineHeight > 0) line.lineHeight else line.bounds.height()
-            var size = (tall * TYPE_OF_LINE)
+            var size = (tall * (if (line.tight) TYPE_OF_INK else TYPE_OF_LINE))
                 .coerceIn(MIN_TYPE_DP * density, MAX_TYPE_DP * density)
             // A translation is usually longer than what it replaces. A label with empty
             // page beside it is given that room and stays on its one line, which is what
@@ -147,6 +153,12 @@ class PageOverlayView(context: Context) : View(context) {
     companion object {
         /** How much of a line's height its letters take up, as type against its own box. */
         private const val TYPE_OF_LINE = 0.70f
+
+        /**
+         * And the other way round, where the height given is the letters: type is set larger
+         * than the ink it makes, since a letter's body is most of its size but not all of it.
+         */
+        private const val TYPE_OF_INK = 1.28f
 
         /** How far past a line's own box the surface behind it is painted, in dp. */
         private const val BLEED_DP = 3.5f

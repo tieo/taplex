@@ -838,7 +838,7 @@ class HoverController(
             }
             if (!Rect.intersects(cover, screen)) return@mapNotNull null
             if (!worthReplacing(paragraph.text)) return@mapNotNull null
-            Block(cover, cover, paragraph.text, paragraph.lineHeight)
+            Block(cover, cover, paragraph.text, paragraph.lineHeight, tight = true)
         }
         // A recogniser can hand back the same words twice, once as a run of its own and
         // once inside the larger run around it, and both drawn leaves the shorter one
@@ -947,6 +947,7 @@ class HoverController(
                 background = style?.first ?: PLAIN_BACKGROUND,
                 ink = style?.second ?: PLAIN_INK,
                 lineHeight = block.lineHeight,
+                tight = block.tight,
             )
         }
         if (lines.isEmpty()) {
@@ -992,6 +993,8 @@ class HoverController(
         val ink: Rect,
         val text: String,
         val lineHeight: Int,
+        /** Whether [lineHeight] measures the letters rather than the box around them. */
+        val tight: Boolean = false,
     )
 
     /** A run as last seen, so one that blinks out for a beat does not take the page with it. */
