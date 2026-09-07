@@ -76,24 +76,24 @@ class TaplexAccessibilityService : AccessibilityService() {
         // changed has moved its lines, and they are read again where they are now.
         when (event.eventType) {
             AccessibilityEvent.TYPE_VIEW_SCROLLED ->
-                // Only a scroll that actually moved something counts. A browser reports
-                // scrolling for things that did not move - a lazy image arriving, its own
-                // bars settling - and a page taken down for each of those spends its life
-                // blinking rather than being read.
-                hover?.onContentChanged(scrolled = moved(event))
+                // How far it moved, not merely that something reported moving: a page held
+                // in another language travels with the one underneath, and the distance is
+                // what it travels by. A browser reports scrolling for things that did not
+                // move - a lazy image arriving, its own bars settling - and those carry no
+                // distance and are left alone.
+                hover?.onScrolled(scrollX(event), scrollY(event))
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ->
                 hover?.onContentChanged(scrolled = false)
         }
     }
 
-    /** Whether a scroll event says the view under it actually moved. */
-    private fun moved(event: AccessibilityEvent): Boolean =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            event.scrollDeltaX != 0 || event.scrollDeltaY != 0
-        } else {
-            true
-        }
+    /** How far the view under a scroll event moved, or zero where it will not say. */
+    private fun scrollX(event: AccessibilityEvent): Int =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) event.scrollDeltaX else 0
+
+    private fun scrollY(event: AccessibilityEvent): Int =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) event.scrollDeltaY else 0
 
     /** How tall the keyboard is right now, or zero when there is none up. */
     private fun imeHeight(): Int =

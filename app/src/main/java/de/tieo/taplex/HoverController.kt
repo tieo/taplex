@@ -652,15 +652,57 @@ class HoverController(
      * from is worse than none, so it is taken down while the page is moving and put back
      * once it has settled.
      */
+    /**
+     * The page was scrolled by [dy], and the translation goes with it.
+     *
+     * A page read from a picture cannot be read again while it is moving: recognising one
+     * takes longer than the scroll does. It used to be taken down for the duration, which
+     * meant the thing the reader was scrolling through was the language they cannot read,
+     * for as long as it took to stop and be recognised again. So the lines are carried the
+     * distance the page moved instead, which is right to within whatever the scroll did
+     * that this was not told about, and the page is recognised again once it settles.
+     */
+    fun onScrolled(dx: Int, dy: Int) {
+        if (page == null) return
+        if (dx == 0 && dy == 0) {
+            onContentChanged(scrolled = false)
+            return
+        }
+        if (!pageByPicture) {
+            onContentChanged(scrolled = true)
+            return
+        }
+        carry(dx, dy)
+        main.removeCallbacks(settle)
+        main.postDelayed(settle, PICTURE_SETTLE_MS)
+    }
+
+    /** Moves everything on the layer by what the page moved, and draws it there. */
+    private fun carry(dx: Int, dy: Int) {
+        val view = page ?: return
+        if (standing.isEmpty()) return
+        val screen = screenSize()
+        val moved = standing.mapNotNull { line ->
+            val bounds = Rect(line.bounds).apply { offset(-dx, -dy) }
+            if (!Rect.intersects(bounds, screen)) return@mapNotNull null
+            line.copy(bounds = bounds)
+        }
+        for (entry in placed.entries) {
+            entry.value.block.cover.offset(-dx, -dy)
+            entry.value.block.ink.offset(-dx, -dy)
+        }
+        standing = moved
+        shown = ""
+        blanked = false
+        view.show(moved)
+    }
+
     fun onContentChanged(scrolled: Boolean = false) {
         if (page == null) return
         // Only a scroll moves the lines. A page that merely changed something in place -
         // and a browser reports that many times a second, for a caret, an animation, its
-        // own toolbar - would otherwise blank the translation over and over and never get
-        // far enough to put it back.
+        // own toolbar - would otherwise read itself again over and over for nothing.
         if (pageByPicture && scrolled) {
-            page?.blank()
-            blanked = true
             shown = ""
             placed.clear()
         }
