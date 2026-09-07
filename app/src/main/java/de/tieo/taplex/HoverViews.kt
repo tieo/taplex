@@ -229,14 +229,14 @@ open class SayInputView(context: Context) : LinearLayout(context) {
         hint = context.getString(R.string.say_hint)
         imeOptions = EditorInfo.IME_ACTION_SEARCH
         isSingleLine = true
-        // The underline and cursor match the app's blue rather than the platform's default
-        // teal, so the field looks like Taplex and not like a stray text box.
-        backgroundTintList = android.content.res.ColorStateList.valueOf(0xFF4C9AFF.toInt())
         highlightColor = 0x554C9AFF
-        // A text field carries its own indent, which set the typed word in from the line
-        // above it and from the answer below it: three left edges down one small panel.
-        // The panel's own padding is the only one wanted, so the field's goes.
-        setPadding(0, paddingTop, 0, paddingBottom)
+        // The line ruled under a bare text field is the platform's, and next to rounded
+        // chips and a bordered answer it reads as a widget someone forgot to dress. The box
+        // around it is the field now, so the field itself draws nothing and keeps no indent
+        // of its own: the box holds the padding, and one left edge runs down the panel.
+        background = null
+        setPadding(0, (10 * density).toInt(), 0, (10 * density).toInt())
+        textSize = 16f
     }
 
     private val answer = EntryView(context).apply { visibility = GONE }
@@ -272,14 +272,22 @@ open class SayInputView(context: Context) : LinearLayout(context) {
     private val header = LinearLayout(context).apply {
         orientation = HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
+        // The same inset the field box holds its microphone at, so the gear stands directly
+        // above it rather than four dots to the side of it.
+        setPadding(0, 0, (4 * density).toInt(), 0)
         addView(prompt, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
         addView(settings, square())
     }
 
-    /** The field and, at the end of it, the microphone that fills it. */
+    /**
+     * The field and, at the end of it, the microphone that fills it: one box, the way a
+     * thing being searched in looks, rather than a line with an icon floating beside it.
+     */
     private val asking = LinearLayout(context).apply {
         orientation = HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
+        setBackgroundResource(R.drawable.field_bg)
+        setPadding((14 * density).toInt(), 0, (4 * density).toInt(), 0)
         addView(field, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
         addView(mic, square())
     }
@@ -330,8 +338,18 @@ open class SayInputView(context: Context) : LinearLayout(context) {
         gravity = Gravity.START
         addView(header)
         addView(chipStrip)
-        addView(asking)
-        addView(answer)
+        addView(
+            asking,
+            LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+                topMargin = (6 * density).toInt()
+            }
+        )
+        addView(
+            answer,
+            LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+                topMargin = (10 * density).toInt()
+            }
+        )
         field.setOnEditorActionListener { _, actionId, event ->
             // An Enter key reports its press and its release, and asking twice cancels the
             // first answer on its way back, so only the press counts.
