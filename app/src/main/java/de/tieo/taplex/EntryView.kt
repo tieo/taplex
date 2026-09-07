@@ -70,6 +70,10 @@ class EntryView(context: Context) : ScrollView(context) {
      * since a machine translation of a word out of its sentence is a guess and the entry is
      * not.
      */
+    /** Whether this is one word, which is the only thing a dictionary has an article for. */
+    private fun looksLikeAWord(text: String): Boolean =
+        text.isNotBlank() && text.trim().none { it.isWhitespace() }
+
     fun showEntries(
         tapped: String,
         entries: List<Entry>,
@@ -92,13 +96,18 @@ class EntryView(context: Context) : ScrollView(context) {
                         .apply { setPadding(0, dp(6), 0, 0) }
                 )
             }
-            column.addView(
-                line(context.getString(R.string.open_article, glossLanguage), size = 13f, color = LINK)
-                    .apply {
-                        setPadding(0, dp(10), 0, 0)
-                        setOnClickListener { onOpenArticle?.invoke() }
-                    }
-            )
+            // A dictionary has articles about words, not about sentences. Offering to open
+            // one for a phrase that was machine translated points at a page that does not
+            // exist, so the way out is offered only for something that could be an entry.
+            if (looksLikeAWord(tapped)) {
+                column.addView(
+                    line(context.getString(R.string.open_article, glossLanguage), size = 13f, color = LINK)
+                        .apply {
+                            setPadding(0, dp(10), 0, 0)
+                            setOnClickListener { onOpenArticle?.invoke() }
+                        }
+                )
+            }
             return
         }
 

@@ -237,22 +237,23 @@ open class SayInputView(context: Context) : LinearLayout(context) {
 
     private val answer = EntryView(context).apply { visibility = GONE }
 
-    /** Says the phrase instead of typing it. Lit while the phone is listening. */
-    private val mic = TextView(context).apply {
-        text = "\uD83C\uDFA4"
-        textSize = 17f
-        alpha = 0.75f
-        val p = (6 * density).toInt()
-        setPadding(p, p, p, p)
+    /**
+     * Says the phrase instead of typing it. It sits at the end of the field it fills, which
+     * is where a microphone means "speak this" rather than anything about the panel.
+     */
+    private val mic = android.widget.ImageView(context).apply {
+        setImageResource(R.drawable.ic_mic)
+        imageTintList = android.content.res.ColorStateList.valueOf(EntryView.MUTED)
+        val p = (8 * density).toInt()
+        setPadding(p, p, 0, p)
     }
 
     /** Opens the app, where languages are added and everything else is set. */
-    private val settings = TextView(context).apply {
-        text = "⚙"
-        textSize = 18f
-        setTextColor(EntryView.MUTED)
+    private val settings = android.widget.ImageView(context).apply {
+        setImageResource(R.drawable.ic_gear)
+        imageTintList = android.content.res.ColorStateList.valueOf(EntryView.MUTED)
         val p = (6 * density).toInt()
-        setPadding(p, p, p, p)
+        setPadding(p, p, 0, p)
     }
 
     /** The top line: what will be answered, and a way through to the app's settings. */
@@ -260,8 +261,15 @@ open class SayInputView(context: Context) : LinearLayout(context) {
         orientation = HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         addView(prompt, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
-        addView(mic, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
-        addView(settings, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+        addView(settings, LayoutParams((22 * density).toInt(), (22 * density).toInt()))
+    }
+
+    /** The field and, at the end of it, the microphone that fills it. */
+    private val asking = LinearLayout(context).apply {
+        orientation = HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        addView(field, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+        addView(mic, LayoutParams((30 * density).toInt(), (30 * density).toInt()))
     }
 
     /** Called with what was typed, when it is asked for. */
@@ -284,8 +292,9 @@ open class SayInputView(context: Context) : LinearLayout(context) {
 
     /** Whether the phone is listening right now, which the microphone shows. */
     fun listening(on: Boolean) {
-        mic.alpha = if (on) 1f else 0.75f
-        mic.setTextColor(if (on) EntryView.LINK else Color.WHITE)
+        mic.imageTintList = android.content.res.ColorStateList.valueOf(
+            if (on) EntryView.LINK else EntryView.MUTED
+        )
         prompt.alpha = if (on) 0.6f else 1f
     }
 
@@ -303,7 +312,7 @@ open class SayInputView(context: Context) : LinearLayout(context) {
         gravity = Gravity.START
         addView(header)
         addView(chipStrip)
-        addView(field)
+        addView(asking)
         addView(answer)
         field.setOnEditorActionListener { _, actionId, event ->
             // An Enter key reports its press and its release, and asking twice cancels the
