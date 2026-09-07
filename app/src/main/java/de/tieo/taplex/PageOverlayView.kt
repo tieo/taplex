@@ -35,6 +35,8 @@ class PageOverlayView(context: Context) : View(context) {
         val text: String,
         val background: Int,
         val ink: Int,
+        /** How tall one line of the original was, which is what the type is set from. */
+        val lineHeight: Int = 0,
     )
 
     private val density = context.resources.displayMetrics.density
@@ -78,7 +80,10 @@ class PageOverlayView(context: Context) : View(context) {
             val room = line.bounds.height() + bleed * 2f
             // Sized to the line it replaces, so a heading stays a heading and a footnote a
             // footnote without knowing anything about the app's own type.
-            var size = (line.bounds.height() * TYPE_OF_LINE)
+            // Set from one of the original's own lines, not from the whole run: a
+            // paragraph's box is many lines tall and type sized to it would be enormous.
+            val tall = if (line.lineHeight > 0) line.lineHeight else line.bounds.height()
+            var size = (tall * TYPE_OF_LINE)
                 .coerceIn(MIN_TYPE_DP * density, MAX_TYPE_DP * density)
             // A translation is usually longer than what it replaces. A label with empty
             // page beside it is given that room and stays on its one line, which is what

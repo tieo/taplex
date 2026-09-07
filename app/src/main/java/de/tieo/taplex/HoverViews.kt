@@ -237,6 +237,15 @@ open class SayInputView(context: Context) : LinearLayout(context) {
 
     private val answer = EntryView(context).apply { visibility = GONE }
 
+    /** Says the phrase instead of typing it. Lit while the phone is listening. */
+    private val mic = TextView(context).apply {
+        text = "\uD83C\uDFA4"
+        textSize = 17f
+        alpha = 0.75f
+        val p = (6 * density).toInt()
+        setPadding(p, p, p, p)
+    }
+
     /** Opens the app, where languages are added and everything else is set. */
     private val settings = TextView(context).apply {
         text = "⚙"
@@ -251,6 +260,7 @@ open class SayInputView(context: Context) : LinearLayout(context) {
         orientation = HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         addView(prompt, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+        addView(mic, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
         addView(settings, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
     }
 
@@ -263,6 +273,27 @@ open class SayInputView(context: Context) : LinearLayout(context) {
             field = value
             settings.setOnClickListener { value?.invoke() }
         }
+
+    /** Starts or stops listening, from the microphone on the panel. */
+    var onDictate: (() -> Unit)? = null
+        set(value) {
+            field = value
+            mic.visibility = if (value == null) GONE else VISIBLE
+            mic.setOnClickListener { value?.invoke() }
+        }
+
+    /** Whether the phone is listening right now, which the microphone shows. */
+    fun listening(on: Boolean) {
+        mic.alpha = if (on) 1f else 0.75f
+        mic.setTextColor(if (on) EntryView.LINK else Color.WHITE)
+        prompt.alpha = if (on) 0.6f else 1f
+    }
+
+    /** What has been heard so far, put in the field as if it had been typed. */
+    fun heard(text: String) {
+        field.setText(text)
+        field.setSelection(text.length)
+    }
 
     init {
         orientation = VERTICAL

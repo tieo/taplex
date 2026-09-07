@@ -8,6 +8,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Dictation in the say panel: the phrase is spoken instead of typed. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <!-- Listing installed apps for the picker that says where the circle appears. The
          launcher-intent query is enough, so the app never needs the far broader

@@ -46,10 +46,25 @@ class MainActivity : ComponentActivity() {
     private val askNotifications =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
 
+    // The say panel offers a microphone only where it may listen, and an accessibility
+    // service cannot ask for a permission itself: there is no screen of its own to ask on.
+    private val askMicrophone =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent { TaplexTheme { Main() } }
         requestNotificationPermission()
+        requestMicrophonePermission()
+    }
+
+    private fun requestMicrophonePermission() {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        askMicrophone.launch(Manifest.permission.RECORD_AUDIO)
     }
 
     private fun requestNotificationPermission() {

@@ -168,7 +168,12 @@ class TaplexAccessibilityService : AccessibilityService() {
             // A picture of the screen, which a page being replaced in its own style needs:
             // the node tree says where a line is and what it says, never what colour the
             // app drew it in.
-            readFrame = { frame() }
+            readFrame = { frame() },
+            // A page is replaced from whichever reading actually carries it: what the app
+            // reports where it reports positions, and a recognised picture where it does
+            // not, which is every browser and every mail body drawn in one.
+            readReported = { wordsReported() },
+            readRecognised = { wordsRecognised(shrink = 1) }
         ).also { hover = it }
 
     /**
@@ -199,12 +204,16 @@ class TaplexAccessibilityService : AccessibilityService() {
      * can hit, so the picture is halved first: a word is still tens of pixels across, and
      * the boxes scale back up exactly.
      */
-    private suspend fun wordsRecognised(): Recognised? {
+    private suspend fun wordsRecognised(shrink: Int = 2): Recognised? {
         val beforePicture = System.currentTimeMillis()
         val frame = frame() ?: return null
         val pictured = System.currentTimeMillis()
-        val small = Bitmap.createScaledBitmap(frame, frame.width / 2, frame.height / 2, true)
-        frame.recycle()
+        val small = if (shrink > 1) {
+            Bitmap.createScaledBitmap(frame, frame.width / shrink, frame.height / shrink, true)
+                .also { frame.recycle() }
+        } else {
+            frame
+        }
         val found = runCatching { Ocr.run(small) }.getOrNull()
         Journal.note(
             "picture took " + (pictured - beforePicture) + "ms, recognising it " +
@@ -217,16 +226,30 @@ class TaplexAccessibilityService : AccessibilityService() {
                     Word(
                         word.text,
                         Rect(
-                            word.bounds.left * 2,
-                            word.bounds.top * 2,
-                            word.bounds.right * 2,
-                            word.bounds.bottom * 2
+                            word.bounds.left * shrink,
+                            word.bounds.top * shrink,
+                            word.bounds.right * shrink,
+                            word.bounds.bottom * shrink
                         ),
                         word.line
                     )
                 },
                 recognised.fullText,
-                recognised.blocks
+                recognised.blocks,
+                // The paragraphs scale back up the same way the words do: they are what a
+                // page is replaced by, and a box at half size would cover half a line.
+                recognised.paragraphs.map { paragraph ->
+                    TextBlock(
+                        paragraph.text,
+                        Rect(
+                            paragraph.bounds.left * shrink,
+                            paragraph.bounds.top * shrink,
+                            paragraph.bounds.right * shrink,
+                            paragraph.bounds.bottom * shrink
+                        ),
+                        paragraph.lineHeight * shrink
+                    )
+                }
             )
         }
     }

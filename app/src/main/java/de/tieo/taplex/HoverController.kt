@@ -47,13 +47,20 @@ class HoverController(
     private val readWords: suspend () -> Recognised,
     private val readBetterWords: suspend () -> Recognised?,
     /** A picture of the screen, for reading the colours a page draws its own text in. */
-    private val readFrame: suspend () -> android.graphics.Bitmap? = { null }
+    private val readFrame: suspend () -> android.graphics.Bitmap? = { null },
+    /** What the apps report, with how much of the screen it accounted for. */
+    private val readReported: suspend () -> NodeWords.Reading = {
+        NodeWords.Reading(Recognised(emptyList(), "", emptyList()), 0, 0)
+    },
+    /** The screen read as a picture, for the screens nobody reports positions for. */
+    private val readRecognised: suspend () -> Recognised? = { null }
 ) {
 
     /** For work that must happen after the frame it was asked in, not during it. */
     private val main = android.os.Handler(android.os.Looper.getMainLooper())
 
     private val lookup = Lookup(context)
+    private val dictation = Dictation(context)
     private val scope = CoroutineScope(Dispatchers.Main)
     private val density = context.resources.displayMetrics.density
 
@@ -85,11 +92,26 @@ class HoverController(
     /** When the screen was last pictured, since the system rations screenshots. */
     private var lastFrameAt = 0L
 
+    /** When the screen was last recognised, which is far dearer than reading the tree. */
+    private var lastPictureAt = 0L
+
+    /** Whether this page is being read from a picture, which is answered more slowly. */
+    private var pageByPicture = false
+
+    /** Lines already asked for, so an overlapping reading does not ask for them again. */
+    private val asking = mutableSetOf<String>()
+
+    /** Whether the model for this pair has been fetched, which is done once. */
+    private var warmed = false
+
     /** What the layer is currently showing, so an unchanged page is not redrawn. */
     private var shown = ""
 
+    /** Where a run was last seen, how tall its own lines were, and when. */
+    private class Seen(val bounds: Rect, val lineHeight: Int, val at: Long)
+
     /** Where each line was last seen, so one that blinks out does not take the page with it. */
-    private val placed = LinkedHashMap<String, Pair<Rect, Long>>()
+    private val placed = LinkedHashMap<String, Seen>()
 
     /** Held so it can be taken off again: back closes the field, and only while it is up. */
     private var back: OnBackInvokedCallback? = null
@@ -200,6 +222,7 @@ class HoverController(
     }
 
     fun close() {
+        dictation.close()
         disarm()
         scope.cancel()
         lookup.close()
@@ -599,6 +622,9 @@ class HoverController(
         said.clear()
         styles.clear()
         placed.clear()
+        asking.clear()
+        warmed = false
+        lastPictureAt = 0L
         Journal.note("page: on, into " + pageInto)
         refreshPage()
         main.postDelayed(tick, POLL_MS)
@@ -643,7 +669,7 @@ class HoverController(
         override fun run() {
             if (page == null) return
             if (translating?.isActive != true) refreshPage()
-            main.postDelayed(this, POLL_MS)
+            main.postDelayed(this, if (pageByPicture) PICTURE_GAP_MS else POLL_MS)
         }
     }
 
@@ -658,9 +684,47 @@ class HoverController(
      */
     private fun refreshPage() {
         val view = page ?: return
+        // One reading at a time. Two running together each see the same untranslated lines
+        // and ask for all of them again, which on a page whose model still had to be fetched
+        // meant the same two dozen strings translated four times over.
+        if (translating?.isActive == true) {
+            pageAgain = true
+            return
+        }
         translating = scope.launch {
-            val reading = withContext(Dispatchers.Default) { readWords() }
-            val lines = linesOf(reading)
+            val reading = withContext(Dispatchers.Default) { readReported() }
+            // The apps' own report is used where it carries the screen: it is immediate,
+            // exact, and free. A browser, or a mail body drawn inside one, reports its text
+            // without saying where any word of it sits, and that screen is read as a picture
+            // instead - which is most of what anyone wants a page translated for.
+            val carries = reading.found.words.size >= MIN_REPORTED &&
+                reading.resolvedCharacters >= reading.unresolvedCharacters
+            val now = System.currentTimeMillis()
+            val found = if (carries) {
+                reading.found
+            } else {
+                // Recognising a picture takes the better part of a second, so it is not
+                // done on every beat; between pictures the page keeps what it has.
+                if (now - lastPictureAt < PICTURE_GAP_MS) return@launch
+                lastPictureAt = now
+                withContext(Dispatchers.Default) { readRecognised() } ?: return@launch
+            }
+            pageByPicture = !carries
+            val screen = screenSize()
+            // A recognised page comes with its text already gathered into the runs it was
+            // written in; a reported one is gathered here, a view at a time.
+            // A recognised run is text by the fact that a recogniser found text in it, so
+            // it is taken as it comes, however many lines tall. A reported one is only as
+            // good as the box the view handed over, which for a view that does not say
+            // where its characters sit can be the whole row, card or banner it lives in,
+            // and painting over one of those to place a word hides everything else in it.
+            val lines = if (found.paragraphs.isNotEmpty()) {
+                found.paragraphs.map { Triple(it.bounds, it.text, it.lineHeight) }
+            } else {
+                linesOf(found)
+                    .filter { readable(it.first, screen) }
+                    .map { (bounds, text) -> Triple(bounds, text, bounds.height()) }
+            }
             if (lines.isEmpty()) {
                 if (page === view && said.isEmpty()) {
                     view.say(context.getString(R.string.page_no_text))
@@ -669,26 +733,35 @@ class HoverController(
             }
             val into = pageInto
             val from = pageFrom
-                ?: lookup.detect(reading.prose())?.also { pageFrom = it }
+                ?: lookup.detect(found.prose())?.also { pageFrom = it }
                 ?: return@launch
             if (from == into) {
                 if (page === view) view.say(context.getString(R.string.page_same_language))
                 return@launch
             }
-            // What has just come into view, and nothing that was already there.
-            val fresh = lines.map { it.second }.distinct().filter { it !in said }
+            // What has just come into view, and nothing already answered or already asked.
+            val fresh = lines.map { it.second }.distinct()
+                .filter { it !in said && it !in asking }
             if (fresh.isNotEmpty()) {
                 val startedAt = System.currentTimeMillis()
-                lookup.warm(from, into)
+                asking += fresh
+                // The pair's model is fetched once. Where it has to come down first this is
+                // the whole wait, so the layer says so rather than sitting blank.
+                if (!warmed) {
+                    if (page === view) view.say(context.getString(R.string.page_translating))
+                    warmed = lookup.warm(from, into)
+                }
                 fresh
                     .map { text ->
                         async(Dispatchers.Default) { text to lookup.translateText(text, from, into) }
                     }
                     .awaitAll()
                     .forEach { (text, answer) -> if (answer != null) said[text] = answer }
+                asking -= fresh.toSet()
                 Journal.note(
                     "page: " + fresh.size + " new lines " + from + " -> " + into + " in " +
-                        (System.currentTimeMillis() - startedAt) + "ms"
+                        (System.currentTimeMillis() - startedAt) + "ms" +
+                        (if (carries) " (reported)" else " (recognised)")
                 )
             }
             // Colours are taken from a picture of the screen only for lines never drawn
@@ -697,12 +770,11 @@ class HoverController(
             // on for long: the system rations screenshots, and a reading that hangs on one
             // would hold up every reading behind it and leave the page frozen mid-scroll.
             val unstyled = lines.filter { it.second !in styles }
-            val now = System.currentTimeMillis()
             if (unstyled.isNotEmpty() && now - lastFrameAt > FRAME_GAP_MS) {
                 lastFrameAt = now
                 val frame = withTimeoutOrNull(FRAME_WAIT_MS) { readFrame() }
                 if (frame != null) {
-                    for ((bounds, text) in unstyled) {
+                    for ((bounds, text, _) in unstyled) {
                         PageOverlayView.styleOf(frame, bounds)?.let { styles[text] = it }
                     }
                     frame.recycle()
@@ -714,22 +786,21 @@ class HoverController(
             // would flicker that line in and out several times a second, so a line keeps its
             // last place for a moment after it stops being reported and only then goes.
             val at = System.currentTimeMillis()
-            for ((bounds, text) in lines) placed[text] = bounds to at
-            placed.entries.removeAll { at - it.value.second > GRACE_MS }
-            val screen = screenSize()
-            val standing = placed.entries
-                .filter { Rect.intersects(it.value.first, screen) }
-                .map { it.value.first to it.key }
-            val shown = standing.mapNotNull { (bounds, text) ->
-                val answer = said[text] ?: return@mapNotNull null
-                val style = styles[text]
-                PageOverlayView.Line(
-                    bounds = bounds,
-                    text = answer,
-                    background = style?.first ?: PLAIN_BACKGROUND,
-                    ink = style?.second ?: PLAIN_INK,
-                )
-            }
+            for ((bounds, text, tall) in lines) placed[text] = Seen(bounds, tall, at)
+            placed.entries.removeAll { at - it.value.at > GRACE_MS }
+            val shown = placed.entries
+                .filter { Rect.intersects(it.value.bounds, screen) }
+                .mapNotNull { (text, seen) ->
+                    val answer = said[text] ?: return@mapNotNull null
+                    val style = styles[text]
+                    PageOverlayView.Line(
+                        bounds = seen.bounds,
+                        text = answer,
+                        background = style?.first ?: PLAIN_BACKGROUND,
+                        ink = style?.second ?: PLAIN_INK,
+                        lineHeight = seen.lineHeight,
+                    )
+                }
             if (shown.isEmpty()) {
                 view.say(context.getString(R.string.page_none))
                 return@launch
@@ -741,7 +812,7 @@ class HoverController(
             }
             if (mark == this@HoverController.shown) return@launch
             this@HoverController.shown = mark
-            Journal.note("page: showing " + shown.size + " of " + lines.size + " lines")
+            Journal.note("page: showing " + shown.size + " lines")
             view.show(shown)
         }.also { job ->
             job.invokeOnCompletion {
@@ -754,6 +825,19 @@ class HoverController(
         }
     }
 
+    /**
+     * Whether a box is a line of text worth replacing.
+     *
+     * A view that does not report where its characters sit hands back its own rectangle for
+     * the one word it holds, and that rectangle can be a whole row, a card, or a banner with
+     * a picture in it. Painting over one of those to put a word on it hides everything else
+     * it contained, so a box has to be the shape of a line before it is treated as one.
+     */
+    private fun readable(bounds: Rect, screen: Rect): Boolean =
+        !bounds.isEmpty &&
+            bounds.height() <= screen.height() * TALLEST_LINE &&
+            bounds.width() >= bounds.height() / 2
+
     private fun dismissPage() {
         main.removeCallbacks(settle)
         main.removeCallbacks(tick)
@@ -765,6 +849,8 @@ class HoverController(
         said.clear()
         styles.clear()
         placed.clear()
+        asking.clear()
+        warmed = false
         page?.let {
             Journal.note("page: off")
             runCatching { windowManager.removeView(it) }
@@ -875,6 +961,24 @@ class HoverController(
         val langs = Dictionary.installed(context)
             .filter { it.first == lookup.glossLanguage }
             .map { it.second }
+        // Saying it rather than typing it. The words go into the field as they are heard,
+        // and the finished phrase is asked for without waiting to be pressed: the field was
+        // opened to ask one question and it has now been asked.
+        if (dictation.canListen()) {
+            dictation.onPartial = { view.heard(it) }
+            dictation.onFinal = { phrase ->
+                view.heard(phrase)
+                view.listening(false)
+                asked?.cancel()
+                asked = scope.launch { view.show(lookup.say(phrase)) }
+            }
+            dictation.onState = { on -> view.listening(on) }
+            view.onDictate = { dictation.start(lookup.glossLanguage) }
+        } else {
+            // Without a recogniser or without permission the microphone would be a button
+            // that does nothing, so it is not offered; the app asks for the permission.
+            view.onDictate = null
+        }
         // The gear opens the app, where a language is added and everything else is set:
         // the panel itself stays about saying a word.
         view.onOpenSettings = {
@@ -927,6 +1031,7 @@ class HoverController(
     }
 
     private fun closeInput() {
+        dictation.stop()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             back?.let { input?.findOnBackInvokedDispatcher()?.unregisterOnBackInvokedCallback(it) }
         }
@@ -1269,6 +1374,15 @@ class HoverController(
 
         /** How long a line keeps its last place after it stops being reported. */
         const val GRACE_MS = 500L
+
+        /** How often a page that has to be recognised from a picture is read again. */
+        const val PICTURE_GAP_MS = 900L
+
+        /** Below this the tree is carrying chrome rather than the page's own words. */
+        const val MIN_REPORTED = 3
+
+        /** The tallest a box may be, against the screen, and still be a line of text. */
+        const val TALLEST_LINE = 0.09f
 
         /** How far apart two words may be and still belong to the same run of a line. */
         const val APART_DP = 24f
