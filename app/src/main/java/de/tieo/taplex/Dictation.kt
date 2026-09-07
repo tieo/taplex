@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import java.util.Locale
 
 /**
  * Saying the word instead of typing it.
@@ -55,6 +56,14 @@ class Dictation(private val context: Context) {
             stop()
             return
         }
+        onDevice = true
+        listen(language)
+    }
+
+    /** Whether the recogniser now in hand is the one that runs on the phone. */
+    private var onDevice = true
+
+    private fun listen(language: String) {
         if (!hasPermission()) {
             Journal.note("dictation: no permission to listen")
             return
@@ -68,7 +77,10 @@ class Dictation(private val context: Context) {
                 RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                 RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
             )
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, language)
+            // A full tag, not a bare code. The recogniser on the phone answers "language
+            // not supported" to "en" and understands "en-US"; where the language wanted is
+            // the one the phone is set to, the phone's own tag is the one it certainly has.
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, tagFor(language))
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
         }
@@ -92,6 +104,15 @@ class Dictation(private val context: Context) {
                 listening = false
                 onState(false)
                 Journal.note("dictation: stopped, reason $error")
+                // The recogniser that runs on the phone does not hold every language.
+                // Where it says so, the question is put to the general one rather than
+                // answered with nothing.
+                if (onDevice && error in UNSUPPORTED) {
+                    onDevice = false
+                    close()
+                    Journal.note("dictation: asking the other recogniser instead")
+                    listen(language)
+                }
             }
 
             override fun onEndOfSpeech() {
@@ -128,7 +149,8 @@ class Dictation(private val context: Context) {
     private fun build(): SpeechRecognizer? {
         recognizer?.let { return it }
         val made = runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            if (onDevice &&
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                 SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
             ) {
                 SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
@@ -138,6 +160,27 @@ class Dictation(private val context: Context) {
         }.getOrNull()
         recognizer = made
         return made
+    }
+
+    /**
+     * The tag to listen in. A language that is the phone's own is asked for by the phone's
+     * whole tag, region and all, since that is the one it is set up for.
+     */
+    private fun tagFor(language: String): String {
+        val here = Locale.getDefault()
+        return if (here.language.equals(language, ignoreCase = true)) {
+            here.toLanguageTag()
+        } else {
+            language
+        }
+    }
+
+    private companion object {
+        /** What a recogniser says when it does not hold the language it was asked for. */
+        val UNSUPPORTED = setOf(
+            SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED,
+            SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE,
+        )
     }
 
     private fun heard(results: Bundle?): String? =
