@@ -120,6 +120,15 @@ class MistView(context: Context) : View(context) {
 
     // ── the strands, and the colours the mark lends them ─────────────────────────────
     private val palette: IntArray = sampleIconColours(context)
+
+    /**
+     * Whether this is being drawn over a bright screen.
+     *
+     * The thread itself is in the mark's own colours, which stand on anything. The lights
+     * along it and the bead in the middle of the ring were white, which is a light on a dark
+     * page and nothing at all on a white one, so they take a dark ink there instead.
+     */
+    var onLight: Boolean = false
     private val ends = FloatArray(STRANDS)      // where on the ring each strand lands
     private val sway = FloatArray(STRANDS)      // how far its wave carries it off the path
     private val waves = FloatArray(STRANDS)     // how many waves fit along it
@@ -378,7 +387,7 @@ class MistView(context: Context) : View(context) {
             pulseGlow.color = withAlpha(blend(colour, RING, r), pa / 4)
             canvas.drawCircle(x, y, size * 2.4f, pulseGlow)
             canvas.drawCircle(x, y, size * 1.4f, pulseGlow)
-            pulse.color = withAlpha(0xFFFFFFFF.toInt(), pa)
+            pulse.color = withAlpha(if (onLight) SPARK_DARK else SPARK_LIGHT, pa)
             canvas.drawCircle(x, y, size * 0.7f, pulse)
         }
     }
@@ -395,7 +404,7 @@ class MistView(context: Context) : View(context) {
         canvas.drawCircle(ringX, ringY, rr - rim.strokeWidth, glass)
         rim.color = withAlpha(RING, a)
         canvas.drawCircle(ringX, ringY, rr - rim.strokeWidth, rim)
-        pip.color = withAlpha(0xFFFFF7E8.toInt(), a)
+        pip.color = withAlpha(if (onLight) SPARK_DARK else PIP_LIGHT, a)
         canvas.drawCircle(ringX, ringY, 3 * density, pip)
     }
 
@@ -462,6 +471,11 @@ class MistView(context: Context) : View(context) {
         const val TAU = 6.2831855f
         const val HALF_PI = 1.5707964f
         const val RING = 0xFF4C9AFF.toInt()
+
+        /** The lights along the thread: pale over a dark screen, dark over a bright one. */
+        const val SPARK_LIGHT = 0xFFFFFFFF.toInt()
+        const val PIP_LIGHT = 0xFFFFF7E8.toInt()
+        const val SPARK_DARK = 0xFF10161D.toInt()
 
         const val FORM_MS = 340
         const val DISSOLVE_MS = 260

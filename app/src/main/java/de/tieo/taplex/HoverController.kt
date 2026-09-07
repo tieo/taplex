@@ -463,7 +463,7 @@ class HoverController(
         if (layer != null) return
         val container = FrameLayout(context)
         val marks = HoverHighlightView(context)
-        val flow = MistView(context)
+        val flow = MistView(context).apply { onLight = bubble?.onLight == true }
         container.addView(marks, FrameLayout.LayoutParams(MATCH, MATCH))
         container.addView(flow, FrameLayout.LayoutParams(MATCH, MATCH))
         windowManager.addView(container, layerParams())
@@ -1787,6 +1787,9 @@ class HoverController(
                 ballVx = 0f
                 ballVy = 0f
                 lastSwing = 0L
+                // The thread is lit the same way the handle is inked: what it is drawn over
+                // decides whether its lights are pale or dark.
+                mist?.onLight = onLight
                 mist?.form(event.rawX, event.rawY, ballX, ballY, radius)
                 android.view.Choreographer.getInstance().postFrameCallback(swing)
             }
