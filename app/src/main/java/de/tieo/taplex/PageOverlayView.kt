@@ -146,7 +146,7 @@ class PageOverlayView(context: Context) : View(context) {
 
     companion object {
         /** How much of a line's height its letters take up, as type against its own box. */
-        private const val TYPE_OF_LINE = 0.62f
+        private const val TYPE_OF_LINE = 0.70f
 
         /** How far past a line's own box the surface behind it is painted, in dp. */
         private const val BLEED_DP = 3.5f

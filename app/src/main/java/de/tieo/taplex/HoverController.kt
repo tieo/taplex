@@ -109,6 +109,12 @@ class HoverController(
     /** What the layer is currently showing, so an unchanged page is not redrawn. */
     private var shown = ""
 
+    /** The lines themselves, so a reading that comes to nothing can put them back. */
+    private var standing: List<PageOverlayView.Line> = emptyList()
+
+    /** Whether the layer has been taken down and is owed a drawing, changed or not. */
+    private var blanked = false
+
     /** Where each run was last seen, so one that blinks out does not take the page with it. */
     private val placed = LinkedHashMap<String, Seen>()
 
@@ -654,9 +660,15 @@ class HoverController(
         // far enough to put it back.
         if (pageByPicture && scrolled) {
             page?.blank()
+            blanked = true
             shown = ""
             placed.clear()
         }
+        // A page held from a picture is only read again when it has actually moved, or
+        // when it has nothing on it yet. Reading it again costs a second or two with the
+        // layer down, and a browser reports something changing many times a second, so
+        // answering all of those left the page blank far more often than translated.
+        if (pageByPicture && !scrolled && shown.isNotEmpty()) return
         main.removeCallbacks(settle)
         main.postDelayed(settle, if (pageByPicture) PICTURE_SETTLE_MS else SETTLE_MS)
         if (translating?.isActive == true) {
@@ -666,8 +678,18 @@ class HoverController(
         if (!pageByPicture) refreshPage()
     }
 
-    /** The reading that catches the page where the scroll left it. */
-    private val settle = Runnable { if (page != null) refreshPage() }
+    /**
+     * The reading that catches the page where the scroll left it.
+     *
+     * A page held from a picture has just been taken down to be moved, so this reading is
+     * the one that puts it back and must not be the one that gets held off: whatever the
+     * usual pause between pictures, after a scroll a new one is owed.
+     */
+    private val settle = Runnable {
+        if (page == null) return@Runnable
+        if (pageByPicture) lastPictureAt = 0L
+        refreshPage()
+    }
 
     /**
      * The page is read again and again for as long as it is being held in another language.
@@ -782,14 +804,23 @@ class HoverController(
         lastPictureAt = now
         if (page !== view) return
         view.blank()
+        blanked = true
         // One frame for the blanked layer to actually reach the screen before it is caught.
         delay(BLANK_MS)
-        val frame = withTimeoutOrNull(FRAME_WAIT_MS) { readFrame() } ?: return
+        // The system rations screenshots and sometimes simply refuses one. The layer has
+        // already been taken down to be photographed, so every way out from here puts back
+        // what it was showing: a reading that came to nothing must not leave a blank page.
+        val frame = withTimeoutOrNull(FRAME_WAIT_MS) { readFrame() } ?: run {
+            Journal.note("page: no picture this time, keeping what was up")
+            restore(view)
+            return
+        }
         val found = withContext(Dispatchers.Default) {
             runCatching { Ocr.run(frame) }.getOrNull()
         }
         if (found == null || page !== view) {
             frame.recycle()
+            restore(view)
             return
         }
         val screen = screenSize()
@@ -806,26 +837,65 @@ class HoverController(
                 }
             }
             if (!Rect.intersects(cover, screen)) return@mapNotNull null
+            if (!worthReplacing(paragraph.text)) return@mapNotNull null
             Block(cover, cover, paragraph.text, paragraph.lineHeight)
         }
-        // The colours come from this same picture, which is the page with nothing of ours
-        // on it, so they are the page's own and cost no second screenshot.
-        for (block in blocks) {
+        // A recogniser can hand back the same words twice, once as a run of its own and
+        // once inside the larger run around it, and both drawn leaves the shorter one
+        // sitting over the longer as a repeated half sentence. The larger run wins.
+        val whole = blocks.filter { block ->
+            blocks.none { other -> other !== block && swallows(other.cover, block.cover) }
+        }
+        for (block in whole) {
             if (block.text !in styles) {
                 PageOverlayView.styleOf(frame, block.ink)?.let { styles[block.text] = it }
             }
         }
         frame.recycle()
-        if (blocks.isEmpty()) {
+        if (whole.isEmpty()) {
             if (page === view && said.isEmpty()) {
                 view.say(context.getString(R.string.page_no_text))
+            } else {
+                restore(view)
             }
             return
         }
-        val from = language(view, found) ?: return
-        translate(view, blocks, from)
+        val from = language(view, found) ?: run { restore(view); return }
+        translate(view, whole, from)
         if (page !== view) return
-        draw(view, blocks)
+        draw(view, whole)
+    }
+
+    /** Puts back what the layer was showing before it was taken down to be photographed. */
+    private fun restore(view: PageOverlayView) {
+        if (page !== view || standing.isEmpty()) return
+        blanked = false
+        view.show(standing)
+    }
+
+    /** Whether [outer] holds nearly all of [inner], which makes [inner] a repeat of it. */
+    private fun swallows(outer: Rect, inner: Rect): Boolean {
+        if (outer == inner) return false
+        val lap = Rect(inner)
+        if (!lap.intersect(outer)) return false
+        val area = inner.width().toLong() * inner.height().toLong()
+        if (area <= 0L) return false
+        val shared = lap.width().toLong() * lap.height().toLong()
+        return shared * 100L >= area * SWALLOWED_PERCENT
+    }
+
+    /**
+     * Whether a run of recognised text is the page rather than the frame around it.
+     *
+     * A picture of the screen holds the address bar, the clock and the battery as readily as
+     * it holds the article, and an address translated word by word is both wrong and in the
+     * way. What has no letters in it, and what is plainly a web address, is left alone.
+     */
+    private fun worthReplacing(text: String): Boolean {
+        if (text.none { it.isLetter() }) return false
+        val trimmed = text.trim()
+        if (WEB_ADDRESS.containsMatchIn(trimmed)) return false
+        return trimmed.count { it.isLetter() } >= MIN_LETTERS
     }
 
     /** The language the page is in, settled once so every reading does not ask again. */
@@ -884,8 +954,13 @@ class HoverController(
             return
         }
         val mark = lines.joinToString("|") { it.bounds.flattenToString() + ":" + it.text.length }
-        if (mark == shown) return
+        // An unchanged page is not redrawn, unless the layer was taken down to photograph
+        // the page behind it: then the very same lines still have to be put back, or the
+        // reading that found nothing had moved leaves a blank page behind it.
+        if (mark == shown && !blanked) return
         shown = mark
+        blanked = false
+        standing = lines
         Journal.note("page: showing " + lines.size + " runs")
         view.show(lines)
     }
@@ -1476,6 +1551,15 @@ class HoverController(
 
         /** The tallest a box may be, against the screen, and still be a line of text. */
         const val TALLEST_LINE = 0.09f
+
+        /** What an address looks like, which is not prose and is not translated. */
+        val WEB_ADDRESS = Regex("(https?://|www\\.|\\w+\\.(com|org|net|nl|de|es|co|io)\\b)")
+
+        /** Below this a run is a glyph or a number rather than something to read. */
+        const val MIN_LETTERS = 2
+
+        /** How much of a run must lie inside another before it counts as a repeat of it. */
+        const val SWALLOWED_PERCENT = 75L
 
         /** How far apart two words may be and still belong to the same run of a line. */
         const val APART_DP = 24f
