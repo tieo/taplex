@@ -237,8 +237,32 @@ open class SayInputView(context: Context) : LinearLayout(context) {
 
     private val answer = EntryView(context).apply { visibility = GONE }
 
+    /** Opens the app, where languages are added and everything else is set. */
+    private val settings = TextView(context).apply {
+        text = "⚙"
+        textSize = 18f
+        setTextColor(EntryView.MUTED)
+        val p = (6 * density).toInt()
+        setPadding(p, p, p, p)
+    }
+
+    /** The top line: what will be answered, and a way through to the app's settings. */
+    private val header = LinearLayout(context).apply {
+        orientation = HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        addView(prompt, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+        addView(settings, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+    }
+
     /** Called with what was typed, when it is asked for. */
     var onSubmit: (String) -> Unit = {}
+
+    /** Opens the app's settings, from the gear on the panel. */
+    var onOpenSettings: (() -> Unit)? = null
+        set(value) {
+            field = value
+            settings.setOnClickListener { value?.invoke() }
+        }
 
     init {
         orientation = VERTICAL
@@ -246,7 +270,7 @@ open class SayInputView(context: Context) : LinearLayout(context) {
         val pad = (14 * density).toInt()
         setPadding(pad, pad, pad, pad)
         gravity = Gravity.START
-        addView(prompt)
+        addView(header)
         addView(chipStrip)
         addView(field)
         addView(answer)

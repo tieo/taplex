@@ -86,12 +86,21 @@ class Lookup(private val context: Context) {
         translator.identify(prose, Prefs.AUTO, emptySet())
 
     /**
+     * Fetches the model for a pair once, so a page of lines translated at the same time is
+     * not each racing to download it. Returns whether there is a model to translate with.
+     */
+    suspend fun warm(from: String, into: String): Boolean = translator.ensure(from, into)
+
+    /**
      * A line of the page as [into] would say it, or null when there is no model for the
      * pair or it cannot be fetched. Whole sentences, not words: ML Kit translates either.
+     *
+     * The model is assumed present: a page warms it once through [warm] before its lines
+     * are handed here together, so this never blocks on a download of its own.
      */
     suspend fun translateText(text: String, from: String, into: String): String? {
         if (from == into) return null
-        return when (val result = translator.translate(text, from, into, allowDownload = true)) {
+        return when (val result = translator.translateReady(text, from, into)) {
             is WordTranslator.Result.Ok -> result.text.takeIf { it.isNotBlank() }
             else -> null
         }

@@ -21,6 +21,8 @@ import android.widget.FrameLayout
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -589,13 +591,26 @@ class HoverController(
                 if (page === view) view.say(context.getString(R.string.page_same_language))
                 return@launch
             }
-            val done = mutableListOf<PageOverlayView.Line>()
-            for ((bounds, text) in lines) {
-                val said = lookup.translateText(text, from, into) ?: continue
-                done += PageOverlayView.Line(bounds, said)
-                if (page === view) view.show(done.toList()) else return@launch
-            }
-            if (done.isEmpty() && page === view) view.say(context.getString(R.string.page_none))
+            val startedAt = System.currentTimeMillis()
+            // The model is fetched once, then every line is translated at the same time
+            // rather than one after another: a page is dozens of short strings, and waiting
+            // on each in turn is what made a page that should land at once take seconds.
+            lookup.warm(from, into)
+            val done = lines
+                .map { (bounds, text) ->
+                    async(Dispatchers.Default) {
+                        lookup.translateText(text, from, into)
+                            ?.let { PageOverlayView.Line(bounds, it) }
+                    }
+                }
+                .awaitAll()
+                .filterNotNull()
+            Journal.note(
+                "page translated " + done.size + "/" + lines.size + " in " +
+                    (System.currentTimeMillis() - startedAt) + "ms"
+            )
+            if (page !== view) return@launch
+            if (done.isEmpty()) view.say(context.getString(R.string.page_none)) else view.show(done)
         }
     }
 
@@ -689,9 +704,18 @@ class HoverController(
         val langs = Dictionary.installed(context)
             .filter { it.first == lookup.glossLanguage }
             .map { it.second }
-        // Adding a language lives in the app's own settings now, not here: this field is
-        // for saying a word, and a way out to the store on it is a second question in the
-        // middle of the first.
+        // The gear opens the app, where a language is added and everything else is set:
+        // the panel itself stays about saying a word.
+        view.onOpenSettings = {
+            closeInput()
+            hideLayer()
+            runCatching {
+                context.startActivity(
+                    android.content.Intent(context, MainActivity::class.java)
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            }
+        }
         view.setLanguages(langs.map { it to Lookup.languageName(it) }, here) { picked ->
             lookup.setLearning(picked)
             view.askFor(Lookup.languageName(picked))

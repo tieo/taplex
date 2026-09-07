@@ -71,6 +71,40 @@ class WordTranslator {
         return answered ?: ranked.firstOrNull()
     }
 
+    /**
+     * Fetches the model for a pair if it is not already there, once. A page about to
+     * translate many lines at once calls this first so the lines do not each set off their
+     * own download of the same model.
+     */
+    suspend fun ensure(source: String, target: String): Boolean {
+        if (source == target) return true
+        val translator = clientFor(source, target) ?: return false
+        return try {
+            translator.downloadModelIfNeeded(DownloadConditions.Builder().build()).await()
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "ensure $source>$target failed", e)
+            false
+        }
+    }
+
+    /**
+     * Translates with the model assumed already present, doing no download check of its
+     * own. [ensure] is what fetches the model, once, before a batch of these; skipping the
+     * per-call download check is what lets a page of lines translate in one breath rather
+     * than paying a round-trip to the model service on every line.
+     */
+    suspend fun translateReady(word: String, source: String, target: String): Result {
+        if (source == target) return Result.Ok(word, source, target)
+        val translator = clientFor(source, target) ?: return Result.Failed("unsupported language pair")
+        return try {
+            Result.Ok(translator.translate(word).await(), source, target)
+        } catch (e: Exception) {
+            Log.w(TAG, "translateReady $source>$target failed", e)
+            Result.Failed(e.message ?: e.javaClass.simpleName)
+        }
+    }
+
     suspend fun translate(word: String, source: String, target: String, allowDownload: Boolean): Result {
         if (source == target) return Result.Ok(word, source, target)
         val translator = clientFor(source, target) ?: return Result.Failed("unsupported language pair")
