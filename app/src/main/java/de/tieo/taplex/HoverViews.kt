@@ -29,12 +29,32 @@ import android.widget.TextView
  */
 open class HoverBubbleView(context: Context) : View(context) {
 
+    private companion object {
+        /** The two inks the mark is drawn in, for a dark surface and for a bright one. */
+        const val LIGHT = 0xFFFFFFFF.toInt()
+        const val DARK = 0xFF10161D.toInt()
+    }
+
     // The handle is the mark in one colour and see-through: parked over a conversation it
     // stays quiet, a shape rather than a full-colour badge sitting on someone's words.
     private val mark = ContextCompat.getDrawable(context, R.drawable.ic_launcher_monochrome)
 
     /** Whether a finger is on it: parked it stays quieter than the conversation under it. */
     var active: Boolean = false
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
+    /**
+     * Whether what the mark is sitting on is bright.
+     *
+     * The mark is one colour and see-through, which on a dark conversation means a pale
+     * shape and on a bright page means very nearly nothing at all. It is drawn in whichever
+     * of the two stands against what is behind it.
+     */
+    var onLight: Boolean = false
         set(value) {
             if (field == value) return
             field = value
@@ -62,9 +82,15 @@ open class HoverBubbleView(context: Context) : View(context) {
         if (masked) return
         val icon = mark ?: return
         icon.setBounds(0, 0, width, height)
+        icon.setTint(if (onLight) DARK else LIGHT)
         // Solid enough to find, faint enough to read through; a touch stronger under the
-        // finger so it answers the press.
-        icon.alpha = if (active) 210 else 130
+        // finger so it answers the press. Dark ink on a bright page needs less of it to be
+        // seen than pale ink on a dark one.
+        icon.alpha = when {
+            active -> 210
+            onLight -> 150
+            else -> 130
+        }
         icon.draw(canvas)
     }
 }

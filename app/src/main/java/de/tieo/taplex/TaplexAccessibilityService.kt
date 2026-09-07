@@ -71,6 +71,9 @@ class TaplexAccessibilityService : AccessibilityService() {
         hover?.onKeyboard(imeHeight())
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             follow(event.packageName?.toString())
+            // A different app is a different surface under the handle, and which ink it is
+            // drawn in follows from that.
+            hover?.onAppChanged()
         }
         // A page held in another language follows the one underneath: what scrolled or
         // changed has moved its lines, and they are read again where they are now.

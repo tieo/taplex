@@ -94,6 +94,10 @@ class HoverController(
     /** When the screen was last pictured, since the system rations screenshots. */
     private var lastFrameAt = 0L
 
+    /** When the surface under the mark was last looked at, to pick the ink to draw it in. */
+    private var lastShadeAt = 0L
+    private var shading: Job? = null
+
     /** When the screen was last recognised, which is far dearer than reading the tree. */
     private var lastPictureAt = 0L
 
@@ -181,6 +185,8 @@ class HoverController(
             .onFailure { Journal.failed("putting the circle up", it) }
             .onSuccess { Journal.note("circle up at $bubbleX,$bubbleY") }
         bubble = view
+        // The app it just came up over decides which ink it is drawn in.
+        main.postDelayed({ shadeMark(force = true) }, SHADE_SETTLE_MS)
     }
 
     /**
@@ -219,9 +225,79 @@ class HoverController(
     }
 
     /**
+     * Draws the mark in whatever stands against what it is sitting on.
+     *
+     * The handle is one see-through colour, which over a dark conversation is a pale shape
+     * and over a bright page is very nearly nothing. What is behind it is read off a picture
+     * of the screen, at the small square the mark occupies, and the ink follows: dark on
+     * bright, pale on dark.
+     *
+     * Asked for rarely and never while anything else is using the screen. The system rations
+     * screenshots, a page being replaced needs them far more than this does, and the surface
+     * under a parked handle changes when the app changes, not by the second.
+     */
+    private fun shadeMark(force: Boolean = false) {
+        val view = bubble ?: return
+        if (view.active || page != null) return
+        val now = System.currentTimeMillis()
+        if (!force && now - lastShadeAt < SHADE_GAP_MS) return
+        if (shading?.isActive == true) return
+        lastShadeAt = now
+        shading = scope.launch {
+            val frame = withTimeoutOrNull(FRAME_WAIT_MS) { readFrame() } ?: return@launch
+            val size = view.width.takeIf { it > 0 } ?: markPx()
+            val under = Rect(bubbleX, bubbleY, bubbleX + size, bubbleY + size)
+            val bright = withContext(Dispatchers.Default) { isBright(frame, under) }
+            frame.recycle()
+            if (bubble === view && bright != null) view.onLight = bright
+        }
+    }
+
+    /**
+     * Whether a patch of the screen is bright enough that dark ink reads better on it than
+     * pale. Sampled thinly: this decides one of two colours, not a shade.
+     */
+    private fun isBright(frame: android.graphics.Bitmap, box: Rect): Boolean? {
+        val left = box.left.coerceIn(0, frame.width - 1)
+        val top = box.top.coerceIn(0, frame.height - 1)
+        val right = box.right.coerceIn(left + 1, frame.width)
+        val bottom = box.bottom.coerceIn(top + 1, frame.height)
+        if (right - left < 2 || bottom - top < 2) return null
+        var total = 0f
+        var seen = 0
+        val stepX = ((right - left) / 8).coerceAtLeast(1)
+        val stepY = ((bottom - top) / 8).coerceAtLeast(1)
+        var y = top
+        while (y < bottom) {
+            var x = left
+            while (x < right) {
+                val colour = frame.getPixel(x, y)
+                total += 0.299f * android.graphics.Color.red(colour) +
+                    0.587f * android.graphics.Color.green(colour) +
+                    0.114f * android.graphics.Color.blue(colour)
+                seen++
+                x += stepX
+            }
+            y += stepY
+        }
+        if (seen == 0) return null
+        return total / seen / 255f > BRIGHT
+    }
+
+    /**
      * Re-seat the mark for a side or a size that has just been set, without waiting for a
      * drag: the point of choosing was to see it take.
      */
+    /**
+     * Another app came to the front, so what the mark is sitting on has changed entirely.
+     * That is worth looking at straight away rather than at the next turn of the usual slow
+     * beat, once the new screen has had a moment to draw itself.
+     */
+    fun onAppChanged() {
+        if (bubble == null) return
+        main.postDelayed({ shadeMark(force = true) }, SHADE_SETTLE_MS)
+    }
+
     fun repark() {
         val view = bubble ?: return
         if (view.active) return
@@ -231,6 +307,7 @@ class HoverController(
         parkedY = parkedY.coerceIn(0, screen.height() - size)
         bubbleY = parkedY
         runCatching { windowManager.updateViewLayout(view, bubbleParams(size)) }
+        shadeMark(force = true)
     }
 
     fun disarm() {
@@ -246,6 +323,7 @@ class HoverController(
     }
 
     fun close() {
+        shading?.cancel()
         dictation.close()
         disarm()
         scope.cancel()
@@ -736,6 +814,9 @@ class HoverController(
     }
 
     fun onContentChanged(scrolled: Boolean = false) {
+        // The handle sits over whatever is behind it whether a page is being replaced or
+        // not, and what is behind it changes when the app does.
+        shadeMark()
         if (page == null) return
         // Only a scroll moves the lines. A page that merely changed something in place -
         // and a browser reports that many times a second, for a caret, an animation, its
@@ -1797,6 +1878,14 @@ class HoverController(
 
         /** How far apart two words may be and still belong to the same run of a line. */
         const val APART_DP = 24f
+
+        /** How rarely the surface under the parked mark is looked at, and how long after
+         * an app comes to the front before it is worth looking at all. */
+        const val SHADE_GAP_MS = 2500L
+        const val SHADE_SETTLE_MS = 400L
+
+        /** Above this much light behind it, the mark is drawn in dark ink instead of pale. */
+        const val BRIGHT = 0.55f
 
         /** How often the screen may be pictured for colours, and how long to wait for one. */
         const val FRAME_GAP_MS = 800L
