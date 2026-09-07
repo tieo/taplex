@@ -30,7 +30,7 @@ data class Explanation(
 class Lookup(private val context: Context) {
 
     private val prefs = Prefs(context)
-    private val translator = WordTranslator()
+    private val translator = WordTranslator(context)
     private var dictionary: Dictionary? = null
 
     /** The language on screen, once something has been read. Null until then. */

@@ -14,7 +14,10 @@ import kotlinx.coroutines.tasks.await
  * On-device translation. Models are roughly 30 MB per language and are fetched once,
  * after which everything runs offline.
  */
-class WordTranslator {
+class WordTranslator(context: android.content.Context? = null) {
+
+    /** Everything already answered, so the same sentence is never sent twice. */
+    private val phrasebook = context?.let { Phrasebook(it) }
 
     // The default threshold of 0.5 returns "und" for a screenful of mixed UI chrome, URLs and
     // numbers, which is exactly what a screenshot contains.
@@ -96,9 +99,12 @@ class WordTranslator {
      */
     suspend fun translateReady(word: String, source: String, target: String): Result {
         if (source == target) return Result.Ok(word, source, target)
+        phrasebook?.get(source, target, word)?.let { return Result.Ok(it, source, target) }
         val translator = clientFor(source, target) ?: return Result.Failed("unsupported language pair")
         return try {
-            Result.Ok(translator.translate(word).await(), source, target)
+            val answer = translator.translate(word).await()
+            phrasebook?.put(source, target, word, answer)
+            Result.Ok(answer, source, target)
         } catch (e: Exception) {
             Log.w(TAG, "translateReady $source>$target failed", e)
             Result.Failed(e.message ?: e.javaClass.simpleName)
@@ -107,6 +113,7 @@ class WordTranslator {
 
     suspend fun translate(word: String, source: String, target: String, allowDownload: Boolean): Result {
         if (source == target) return Result.Ok(word, source, target)
+        phrasebook?.get(source, target, word)?.let { return Result.Ok(it, source, target) }
         val translator = clientFor(source, target) ?: return Result.Failed("unsupported language pair")
         return try {
             if (allowDownload) {
@@ -117,7 +124,9 @@ class WordTranslator {
                     DownloadConditions.Builder().requireWifi().build()
                 ).await()
             }
-            Result.Ok(translator.translate(word).await(), source, target)
+            val answer = translator.translate(word).await()
+            phrasebook?.put(source, target, word, answer)
+            Result.Ok(answer, source, target)
         } catch (e: Exception) {
             Log.w(TAG, "translate $source>$target failed", e)
             Result.Failed(e.message ?: e.javaClass.simpleName)
@@ -145,5 +154,6 @@ class WordTranslator {
         clients.values.forEach { it.close() }
         clients.clear()
         languageId.close()
+        phrasebook?.close()
     }
 }

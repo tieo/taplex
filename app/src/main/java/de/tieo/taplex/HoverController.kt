@@ -115,6 +115,25 @@ class HoverController(
     /** Whether the layer has been taken down and is owed a drawing, changed or not. */
     private var blanked = false
 
+    /** How far the page has travelled since the lines were last drawn where they belong. */
+    private var driftX = 0
+    private var driftY = 0
+
+    /**
+     * What a reported scroll distance is worth on screen.
+     *
+     * A browser counts its scrolling in the page's own pixels, not the screen's, so a swipe
+     * that moved the text by eight hundred dots is reported as five hundred and something.
+     * The ratio is whatever that page is zoomed to and cannot be known in advance, so it is
+     * measured: every time the screen is recognised, how far the runs actually moved is
+     * compared with how far they were said to have moved.
+     */
+    private var scrollScale = 1f
+
+    /** Where each run sat when the screen was last read, and what has been reported since. */
+    private var readAt: Map<String, Int> = emptyMap()
+    private var reportedSince = 0
+
     /** Where each run was last seen, so one that blinks out does not take the page with it. */
     private val placed = LinkedHashMap<String, Seen>()
 
@@ -653,18 +672,20 @@ class HoverController(
      * once it has settled.
      */
     /**
-     * The page was scrolled by [dy], and the translation goes with it.
+     * The page was scrolled, so what is drawn over it is wrong from this instant.
      *
-     * A page read from a picture cannot be read again while it is moving: recognising one
-     * takes longer than the scroll does. It used to be taken down for the duration, which
-     * meant the thing the reader was scrolling through was the language they cannot read,
-     * for as long as it took to stop and be recognised again. So the lines are carried the
-     * distance the page moved instead, which is right to within whatever the scroll did
-     * that this was not told about, and the page is recognised again once it settles.
+     * The layer goes at once and the page underneath is left to be scrolled through, since a
+     * translation held over moving text covers the thing being looked for and is wrong about
+     * it as well. How far the page has travelled meanwhile is counted, so that the moment it
+     * stops the lines can be put straight back where they now belong rather than waiting on
+     * a reading: recognising a screen takes a second or two, and a page that stays blank for
+     * that long after the finger stops is a page that was hidden for no reason.
      */
     fun onScrolled(dx: Int, dy: Int) {
         if (page == null) return
         if (dx == 0 && dy == 0) {
+            // A browser reports scrolling for a lazy image arriving or its own bars
+            // settling. Nothing moved, so nothing is hidden.
             onContentChanged(scrolled = false)
             return
         }
@@ -672,29 +693,46 @@ class HoverController(
             onContentChanged(scrolled = true)
             return
         }
-        carry(dx, dy)
+        driftX += dx
+        driftY += dy
+        reportedSince += dy
+        page?.blank()
+        blanked = true
+        shown = ""
         main.removeCallbacks(settle)
-        main.postDelayed(settle, PICTURE_SETTLE_MS)
+        main.postDelayed(settle, SCROLL_END_MS)
     }
 
-    /** Moves everything on the layer by what the page moved, and draws it there. */
-    private fun carry(dx: Int, dy: Int) {
+    /**
+     * Puts the lines back the instant the page stops, carried by everything it travelled
+     * while they were down. They are right to within whatever the scroll did that this was
+     * not told about, and the reading that follows settles them exactly.
+     */
+    private fun reappear() {
         val view = page ?: return
         if (standing.isEmpty()) return
         val screen = screenSize()
-        val moved = standing.mapNotNull { line ->
-            val bounds = Rect(line.bounds).apply { offset(-dx, -dy) }
-            if (!Rect.intersects(bounds, screen)) return@mapNotNull null
-            line.copy(bounds = bounds)
+        val byX = (driftX * scrollScale).toInt()
+        val byY = (driftY * scrollScale).toInt()
+        val moved = if (byX == 0 && byY == 0) {
+            standing
+        } else {
+            for (entry in placed.entries) {
+                entry.value.block.cover.offset(-byX, -byY)
+                entry.value.block.ink.offset(-byX, -byY)
+            }
+            standing.mapNotNull { line ->
+                val bounds = Rect(line.bounds).apply { offset(-byX, -byY) }
+                if (!Rect.intersects(bounds, screen)) return@mapNotNull null
+                line.copy(bounds = bounds)
+            }
         }
-        for (entry in placed.entries) {
-            entry.value.block.cover.offset(-dx, -dy)
-            entry.value.block.ink.offset(-dx, -dy)
-        }
+        driftX = 0
+        driftY = 0
         standing = moved
         shown = ""
         blanked = false
-        view.show(moved)
+        if (moved.isNotEmpty()) view.show(moved, settled = false)
     }
 
     fun onContentChanged(scrolled: Boolean = false) {
@@ -729,7 +767,11 @@ class HoverController(
      */
     private val settle = Runnable {
         if (page == null) return@Runnable
-        if (pageByPicture) lastPictureAt = 0L
+        // Back on the page first, carried to where it now is, and only then read again.
+        if (pageByPicture) {
+            reappear()
+            lastPictureAt = 0L
+        }
         refreshPage()
     }
 
@@ -909,9 +951,36 @@ class HoverController(
             return
         }
         val from = language(view, found) ?: run { restore(view); return }
+        calibrate(whole)
         translate(view, whole, from)
         if (page !== view) return
         draw(view, whole)
+    }
+
+    /**
+     * Learns what a reported scroll distance is worth on this page.
+     *
+     * Runs that were on the screen the last time it was read and are still here have moved
+     * by some distance; the scroll events since said they moved by another. The ratio of the
+     * two is what a reported pixel is worth, and it is taken from the middle of the runs
+     * rather than any one of them, since a page also reflows and grows pictures while it
+     * scrolls. It is eased towards rather than snapped to, so one odd reading cannot throw
+     * the next scroll across the screen.
+     */
+    private fun calibrate(blocks: List<Block>) {
+        val was = readAt
+        val reported = reportedSince
+        readAt = blocks.associate { it.text to it.cover.top }
+        reportedSince = 0
+        if (was.isEmpty() || reported == 0) return
+        val moves = blocks.mapNotNull { block -> was[block.text]?.let { block.cover.top - it } }
+        if (moves.size < 2) return
+        val actual = moves.sorted()[moves.size / 2]
+        if (actual == 0) return
+        val ratio = -actual.toFloat() / reported
+        if (ratio !in MIN_SCALE..MAX_SCALE) return
+        scrollScale = scrollScale * 0.5f + ratio * 0.5f
+        Journal.note("page: a reported pixel is worth %.2f".format(scrollScale))
     }
 
     /** Puts back what the layer was showing before it was taken down to be photographed. */
@@ -1079,6 +1148,11 @@ class HoverController(
     }
 
     private fun dismissPage() {
+        driftX = 0
+        driftY = 0
+        reportedSince = 0
+        readAt = emptyMap()
+        scrollScale = 1f
         main.removeCallbacks(settle)
         main.removeCallbacks(tick)
         translating?.cancel()
@@ -1648,7 +1722,14 @@ class HoverController(
         const val PICTURE_GAP_MS = 900L
 
         /** How long after the page stops moving a recognised one is put back. */
-        const val PICTURE_SETTLE_MS = 420L
+        const val PICTURE_SETTLE_MS = 240L
+
+        /** How quiet a scroll must go before it counts as finished. */
+        const val SCROLL_END_MS = 130L
+
+        /** The range a reported scroll pixel may be worth on screen before it is disbelieved. */
+        const val MIN_SCALE = 0.3f
+        const val MAX_SCALE = 4f
 
         /** A frame for the layer to go blank before the screen behind it is caught. */
         const val BLANK_MS = 70L

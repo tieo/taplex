@@ -67,16 +67,25 @@ class PageOverlayView(context: Context) : View(context) {
 
     /** Nothing at all, which is what a page being moved should have over it. */
     fun blank() {
+        alpha = 1f
         if (lines.isEmpty() && message == null) return
         lines = emptyList()
         message = null
         invalidate()
     }
 
-    /** The lines as they stand now. Called again on every scroll, with the new places. */
-    fun show(found: List<Line>) {
+    /**
+     * The lines as they stand now.
+     *
+     * [settled] says whether these are where the page was actually read, or carried there by
+     * how far it was said to have scrolled. A carried page is close but not exact, so it is
+     * shown a little faint: that reads as an answer catching up, where the same thing at
+     * full strength reads as an answer in the wrong place.
+     */
+    fun show(found: List<Line>, settled: Boolean = true) {
         lines = found
         message = null
+        alpha = if (settled) 1f else CARRIED_ALPHA
         invalidate()
     }
 
@@ -159,6 +168,9 @@ class PageOverlayView(context: Context) : View(context) {
          * than the ink it makes, since a letter's body is most of its size but not all of it.
          */
         private const val TYPE_OF_INK = 1.28f
+
+        /** How strongly a page stands while it is only carried, not yet read where it is. */
+        private const val CARRIED_ALPHA = 0.55f
 
         /** How far past a line's own box the surface behind it is painted, in dp. */
         private const val BLEED_DP = 3.5f
