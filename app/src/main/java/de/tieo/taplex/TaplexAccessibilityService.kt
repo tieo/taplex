@@ -187,7 +187,7 @@ class TaplexAccessibilityService : AccessibilityService() {
             // reports where it reports positions, and a recognised picture where it does
             // not, which is every browser and every mail body drawn in one.
             readReported = { wordsReported() },
-            readRecognised = { wordsRecognised(shrink = 1) }
+            readRecognised = { wordsRecognised(shrink = 2) }
         ).also { hover = it }
 
     /**

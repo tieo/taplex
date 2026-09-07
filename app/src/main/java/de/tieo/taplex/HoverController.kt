@@ -899,9 +899,26 @@ class HoverController(
             restore(view)
             return
         }
-        val found = withContext(Dispatchers.Default) {
-            runCatching { Ocr.run(frame) }.getOrNull()
+        // Recognised at half size and scaled back. A word is still tens of dots across at
+        // that size, the boxes scale exactly, and recognising a phone screen whole costs
+        // several times as long for letters nobody was going to read differently.
+        val small = withContext(Dispatchers.Default) {
+            runCatching {
+                android.graphics.Bitmap.createScaledBitmap(
+                    frame, frame.width / SHRINK, frame.height / SHRINK, true
+                )
+            }.getOrNull()
         }
+        val readingAt = System.currentTimeMillis()
+        val found = small?.let { picture ->
+            withContext(Dispatchers.Default) {
+                runCatching { Ocr.run(picture) }.getOrNull()?.let { grown(it) }
+            }
+        }
+        small?.recycle()
+        Journal.note(
+            "page: recognised the screen in " + (System.currentTimeMillis() - readingAt) + "ms"
+        )
         if (found == null || page !== view) {
             frame.recycle()
             restore(view)
@@ -982,6 +999,24 @@ class HoverController(
         scrollScale = scrollScale * 0.5f + ratio * 0.5f
         Journal.note("page: a reported pixel is worth %.2f".format(scrollScale))
     }
+
+    /** The recogniser's boxes at the size of the screen rather than of the picture. */
+    private fun grown(found: Recognised): Recognised =
+        if (SHRINK == 1) found else Recognised(
+            found.words.map { word -> word.copy(bounds = scaled(word.bounds)) },
+            found.fullText,
+            found.blocks,
+            found.paragraphs.map { run ->
+                TextBlock(run.text, scaled(run.bounds), run.lineHeight * SHRINK)
+            }
+        )
+
+    private fun scaled(box: Rect) = Rect(
+        box.left * SHRINK,
+        box.top * SHRINK,
+        box.right * SHRINK,
+        box.bottom * SHRINK
+    )
 
     /** Puts back what the layer was showing before it was taken down to be photographed. */
     private fun restore(view: PageOverlayView) {
@@ -1726,6 +1761,9 @@ class HoverController(
 
         /** How quiet a scroll must go before it counts as finished. */
         const val SCROLL_END_MS = 130L
+
+        /** How much the screen is shrunk before it is recognised. */
+        const val SHRINK = 2
 
         /** The range a reported scroll pixel may be worth on screen before it is disbelieved. */
         const val MIN_SCALE = 0.3f
