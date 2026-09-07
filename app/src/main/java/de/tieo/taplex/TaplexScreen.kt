@@ -88,6 +88,8 @@ data class UiState(
     val learningLanguage: String? = null,
     /** Whether the answer stays put when the finger lifts. */
     val keepAfterRelease: Boolean = false,
+    /** The language a tap on the mark turns the whole page into. */
+    val translatePageInto: String = "en",
     val query: String = "",
     val answer: Explanation? = null,
     val searching: Boolean = false
@@ -131,6 +133,7 @@ data class ScreenActions(
     val onMarkSizeChanged: (Int) -> Unit = {},
     val onMarkEdgeChanged: (Int) -> Unit = {},
     val onKeepChanged: (Boolean) -> Unit = {},
+    val onTranslatePageIntoClicked: () -> Unit = {},
     val onQueryChanged: (String) -> Unit = {},
     val onSearch: () -> Unit = {},
     val onAddTile: (() -> Unit)? = null
@@ -786,6 +789,24 @@ private fun HoverScope(state: UiState, actions: ScreenActions) {
         )
         Spacer(Modifier.width(8.dp))
         Switch(checked = state.keepAfterRelease, onCheckedChange = actions.onKeepChanged)
+    }
+    // The language a tap on the mark turns the whole page into, chosen from every language
+    // the on-device translator can reach.
+    Row(
+        Modifier.padding(start = 16.dp, end = 12.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            stringResource(R.string.hover_translate_into),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(Modifier.width(8.dp))
+        FilterChip(
+            selected = true,
+            onClick = actions.onTranslatePageIntoClicked,
+            label = { Text(languageName(state.translatePageInto)) }
+        )
     }
     Row(
         Modifier.padding(start = 16.dp, end = 12.dp, bottom = 6.dp),

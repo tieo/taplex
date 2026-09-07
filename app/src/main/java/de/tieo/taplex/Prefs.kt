@@ -78,6 +78,15 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_KEEP, false)
         set(value) = sp.edit().putBoolean(KEY_KEEP, value).apply()
 
+    /**
+     * The language a whole-page translation is written in: a tap on the mark turns every
+     * sentence on screen into this one. Defaults to the language the phone is set to, which
+     * is the language the reader already reads.
+     */
+    var translatePageInto: String
+        get() = sp.getString(KEY_PAGE_INTO, null) ?: Locale.getDefault().language
+        set(value) = sp.edit().putString(KEY_PAGE_INTO, value).apply()
+
     companion object {
         const val AUTO = "auto"
         const val DEFAULT_MARK_DP = 40
@@ -103,5 +112,6 @@ class Prefs(context: Context) {
         private const val KEY_MARK_EDGE = "markEdge"
         private const val KEY_LEARNING = "learning"
         private const val KEY_KEEP = "keepAfterRelease"
+        private const val KEY_PAGE_INTO = "translatePageInto"
     }
 }

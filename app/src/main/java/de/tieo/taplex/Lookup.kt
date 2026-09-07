@@ -77,6 +77,27 @@ class Lookup(private val context: Context) {
     }
 
     /**
+     * The language a whole screen of text is in, guessed from all of it at once. Always
+     * identified rather than taken from the source setting: a page-wide translation is
+     * asked for on whatever happens to be in front, not on the language a reader configured
+     * for their own lookups.
+     */
+    suspend fun detect(prose: String): String? =
+        translator.identify(prose, Prefs.AUTO, emptySet())
+
+    /**
+     * A line of the page as [into] would say it, or null when there is no model for the
+     * pair or it cannot be fetched. Whole sentences, not words: ML Kit translates either.
+     */
+    suspend fun translateText(text: String, from: String, into: String): String? {
+        if (from == into) return null
+        return when (val result = translator.translate(text, from, into, allowDownload = true)) {
+            is WordTranslator.Result.Ok -> result.text.takeIf { it.isNotBlank() }
+            else -> null
+        }
+    }
+
+    /**
      * [term] as the pack explains it, with a machine translation only where the pack has no
      * entry. A dictionary says what a word means, in how many ways, and how it is used; a
      * translation of a single word pulled out of its sentence is one guess at one of those.

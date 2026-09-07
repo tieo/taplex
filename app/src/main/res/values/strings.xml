@@ -20,7 +20,7 @@
     <string name="tile_add_why">One press from any screen freezes it for a tap</string>
     <string name="hover_title">Talking practice</string>
     <string name="hover_toggle">Circle over other apps</string>
-    <string name="hover_explained">Drag it over a word while you read</string>
+    <string name="hover_explained">Drag over a word to look it up, tap to translate the whole page</string>
     <string name="hover_side">Side</string>
     <string name="hover_side_left">left</string>
     <string name="hover_side_right">right</string>
@@ -29,6 +29,11 @@
     <string name="hover_size">Size</string>
     <string name="hover_edge">Distance from the edge</string>
     <string name="hover_keep">Keep the answer when you lift your finger</string>
+    <string name="hover_translate_into">Translate the page into</string>
+    <string name="page_translating">Translating the page…</string>
+    <string name="page_no_text">No text to translate here</string>
+    <string name="page_same_language">The page is already in that language</string>
+    <string name="page_none">Could not translate this page</string>
     <string name="hover_scope_search">Search apps</string>
     <string name="hover_scope_none">No app chosen, so the circle appears nowhere</string>
     <string name="no_pack">no %1$s dictionary</string>

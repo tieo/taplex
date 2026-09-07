@@ -89,6 +89,8 @@ private fun Main() {
     var markSize by remember { mutableIntStateOf(prefs.markSizeDp) }
     var markEdge by remember { mutableIntStateOf(prefs.markEdgeDp) }
     var keep by remember { mutableStateOf(prefs.keepAfterRelease) }
+    var pageInto by remember { mutableStateOf(prefs.translatePageInto) }
+    var pickingPage by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var answer by remember { mutableStateOf<Explanation?>(null) }
     val lookup = remember { Lookup(context) }
@@ -107,7 +109,7 @@ private fun Main() {
         onDispose { owner.lifecycle.removeObserver(watcher) }
     }
 
-    val state = remember(reread, build, hovering, everywhere, onRight, chosen, apps, appQuery, markSize, markEdge, keep, query, answer) {
+    val state = remember(reread, build, hovering, everywhere, onRight, chosen, apps, appQuery, markSize, markEdge, keep, pageInto, query, answer) {
         UiState(
             lookupEnabled = lookupEnabled(context),
             canDrawOverlay = Settings.canDrawOverlays(context),
@@ -130,6 +132,7 @@ private fun Main() {
             markEdgeDp = markEdge,
             learningLanguage = prefs.learningLanguage,
             keepAfterRelease = keep,
+            translatePageInto = pageInto,
             query = query,
             answer = answer
         )
@@ -215,9 +218,38 @@ private fun Main() {
             onKeepChanged = { wanted ->
                 prefs.keepAfterRelease = wanted
                 keep = wanted
-            }
+            },
+            onTranslatePageIntoClicked = { pickingPage = true }
         )
     )
+
+    if (pickingPage) {
+        val languages = remember { translateLanguages(prefs.targetLanguage) }
+        var query by remember { mutableStateOf("") }
+        val shown = remember(languages, query) { PackSource.matching(languages, query) }
+        AlertDialog(
+            onDismissRequest = { pickingPage = false },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { pickingPage = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+            title = { Text(stringResource(R.string.hover_translate_into)) },
+            text = {
+                LanguagePicker(
+                    shown = shown,
+                    query = query,
+                    onQueryChange = { query = it },
+                    onPick = { language ->
+                        pickingPage = false
+                        prefs.translatePageInto = language.code
+                        pageInto = language.code
+                    }
+                )
+            }
+        )
+    }
 
     if (picking) {
         val languages = remember(state.glossLanguage) { PackSource.languages(state.glossLanguage) }
@@ -258,6 +290,27 @@ private fun lookupEnabled(context: Context): Boolean {
     ) ?: return false
     val name = ComponentName(context, TaplexAccessibilityService::class.java)
     return enabled.split(':').any { ComponentName.unflattenFromString(it) == name }
+}
+
+/**
+ * Every language the on-device translator can render a page into, named in the phone's own
+ * language and sorted by that name. The picker shares the dictionary picker's shape, so each
+ * is a [PackSource.Available] with no download behind it: the translation models are fetched
+ * by the translator itself the first time a pair is used.
+ */
+private fun translateLanguages(glossLanguage: String): List<PackSource.Available> {
+    val gloss = java.util.Locale.forLanguageTag(glossLanguage)
+    return com.google.mlkit.nl.translate.TranslateLanguage.getAllLanguages()
+        .map { code ->
+            PackSource.Available(
+                code = code,
+                name = java.util.Locale.forLanguageTag(code).getDisplayLanguage(gloss),
+                url = ""
+            )
+        }
+        .filter { it.name.isNotEmpty() && !it.name.equals(it.code, ignoreCase = true) }
+        .distinctBy { it.name }
+        .sortedBy { it.name }
 }
 
 /** Everything with a launcher entry, which is what a reader thinks of as "an app". */

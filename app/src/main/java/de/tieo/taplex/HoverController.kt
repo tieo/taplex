@@ -62,6 +62,10 @@ class HoverController(
     private var cardMove: ValueAnimator? = null
     private var input: View? = null
 
+    /** The whole page as one language, up between a tap on the mark and a tap to dismiss. */
+    private var page: PageOverlayView? = null
+    private var translating: Job? = null
+
     /** Held so it can be taken off again: back closes the field, and only while it is up. */
     private var back: OnBackInvokedCallback? = null
 
@@ -109,25 +113,29 @@ class HoverController(
     }
 
     /**
-     * The keyboard has opened or closed. If it would sit over the parked mark, the mark
-     * rides up just above it, and comes back down when it goes. The mark being dragged is
-     * left alone: it is under a finger, not resting.
+     * The keyboard has opened or closed, and the resting mark moves with it.
+     *
+     * Whenever a keyboard is up the mark rides up by exactly its height, so it holds the
+     * same place over the text that is left rather than being shoved onto the keys, and it
+     * comes back down to where it rests the moment the keyboard goes. It moves every time,
+     * not only when the keyboard would have covered it: a reader who parks the mark low and
+     * a reader who parks it high both expect it to get out of the way and then return. The
+     * mark being dragged is left alone, since it is under a finger, not resting.
      */
     fun onKeyboard(imeBottomPx: Int) {
         val view = bubble ?: return
         if (view.active) return
         val screen = screenSize()
-        val keyboardTop = screen.height() - imeBottomPx
-        val wanted = if (imeBottomPx > 0 && parkedY + view.height > keyboardTop) {
-            (keyboardTop - view.height - (8 * density).toInt()).coerceAtLeast(0)
+        val floor = (screen.height() - view.height).coerceAtLeast(0)
+        val wanted = if (imeBottomPx > 0) {
+            (parkedY - imeBottomPx).coerceIn(0, floor)
         } else {
-            parkedY
+            parkedY.coerceIn(0, floor)
         }
         if (wanted == bubbleY) return
-        Journal.note("keyboard $imeBottomPx px, mark $bubbleY -> $wanted")
-        val from = bubbleY
+        Journal.note("keyboard $imeBottomPx px, mark $bubbleY -> $wanted (rest $parkedY)")
         keyboardShift = imeBottomPx
-        ValueAnimator.ofInt(from, wanted).apply {
+        ValueAnimator.ofInt(bubbleY, wanted).apply {
             duration = 180
             interpolator = DecelerateInterpolator(1.6f)
             addUpdateListener {
@@ -160,6 +168,7 @@ class HoverController(
         pending?.cancel()
         asked?.cancel()
         closeInput()
+        dismissPage()
         hideLayer()
         bubble?.let { windowManager.removeView(it) }
         bubble = null
@@ -533,6 +542,118 @@ class HoverController(
             Rect(0, 0, windowManager.defaultDisplay.width, windowManager.defaultDisplay.height)
         }
 
+    // ── the whole page in one language ─────────────────────────────────────────────────
+
+    /**
+     * A tap on the mark either lays the page's translation over it or, if one is already
+     * up, takes it away: the same gesture puts the page into the reader's language and
+     * back.
+     */
+    private fun togglePage() {
+        if (page != null) {
+            dismissPage()
+            return
+        }
+        translatePage()
+    }
+
+    /**
+     * Reads every line on screen and draws its translation over it, into the language the
+     * reader chose. The page fills in line by line as the translations arrive rather than
+     * waiting on the last of them, and the model for the pair is fetched once if it is not
+     * already there.
+     */
+    private fun translatePage() {
+        val into = Prefs(context).translatePageInto
+        val view = PageOverlayView(context)
+        view.onDismiss = { dismissPage() }
+        view.say(context.getString(R.string.page_translating))
+        val added = runCatching { windowManager.addView(view, pageParams()) }
+            .onFailure { Journal.failed("putting the page translation up", it) }
+            .isSuccess
+        if (!added) return
+        page = view
+        // The mark is hidden while the page is read and shown, the same as during a drag,
+        // so it is never read as one of the lines and translated onto itself.
+        bubble?.masked = true
+        translating = scope.launch {
+            val recognised = readForPage()
+            val lines = linesOf(recognised)
+            if (lines.isEmpty()) {
+                if (page === view) view.say(context.getString(R.string.page_no_text))
+                return@launch
+            }
+            val from = lookup.detect(recognised.prose())
+            Journal.note("page: " + lines.size + " lines, " + from + " -> " + into)
+            if (from == null || from == into) {
+                if (page === view) view.say(context.getString(R.string.page_same_language))
+                return@launch
+            }
+            val done = mutableListOf<PageOverlayView.Line>()
+            for ((bounds, text) in lines) {
+                val said = lookup.translateText(text, from, into) ?: continue
+                done += PageOverlayView.Line(bounds, said)
+                if (page === view) view.show(done.toList()) else return@launch
+            }
+            if (done.isEmpty() && page === view) view.say(context.getString(R.string.page_none))
+        }
+    }
+
+    private fun dismissPage() {
+        translating?.cancel()
+        translating = null
+        page?.let { runCatching { windowManager.removeView(it) } }
+        page = null
+        // Only the drag hides the mark otherwise, so it is safe to bring it back here: a
+        // page was taken down, and nothing else was masking it.
+        if (bubble?.active != true) bubble?.masked = false
+    }
+
+    /** The best reading of the screen there is: reported where it carries, recognised where not. */
+    private suspend fun readForPage(): Recognised {
+        val reported = readWords()
+        val better = readBetterWords()
+        return better ?: reported
+    }
+
+    /**
+     * The words grouped back into the lines they were read from, each with the box the
+     * whole line covers. A node reports a paragraph's words under one line of text and a
+     * recogniser a visual line's; either way the line is the unit that translates, since a
+     * word pulled out of its sentence is a different translation from the sentence's.
+     */
+    private fun linesOf(found: Recognised): List<Pair<Rect, String>> {
+        if (found.words.isEmpty()) return emptyList()
+        val boxes = LinkedHashMap<String, Rect>()
+        for (word in found.words) {
+            val key = word.line.ifBlank { word.text }
+            val box = boxes[key]
+            if (box == null) boxes[key] = Rect(word.bounds) else box.union(word.bounds)
+        }
+        return boxes.entries
+            .filter { it.key.isNotBlank() && !it.value.isEmpty }
+            .map { it.value to it.key.trim() }
+    }
+
+    private fun pageParams() = WindowManager.LayoutParams(
+        MATCH,
+        MATCH,
+        CaptureService.overlayType(),
+        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+        PixelFormat.TRANSLUCENT
+    ).apply {
+        gravity = Gravity.TOP or Gravity.START
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            layoutInDisplayCutoutMode =
+                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            fitInsetsTypes = 0
+        }
+    }
+
     // ── the word you want to say ───────────────────────────────────────────────────────
 
     /**
@@ -568,16 +689,9 @@ class HoverController(
         val langs = Dictionary.installed(context)
             .filter { it.first == lookup.glossLanguage }
             .map { it.second }
-        view.onAddLanguage = {
-            closeInput()
-            hideLayer()
-            runCatching {
-                context.startActivity(
-                    android.content.Intent(context, MainActivity::class.java)
-                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                )
-            }
-        }
+        // Adding a language lives in the app's own settings now, not here: this field is
+        // for saying a word, and a way out to the store on it is a second question in the
+        // middle of the first.
         view.setLanguages(langs.map { it to Lookup.languageName(it) }, here) { picked ->
             lookup.setLearning(picked)
             view.askFor(Lookup.languageName(picked))
@@ -794,11 +908,13 @@ class HoverController(
                     active = false
                     android.view.Choreographer.getInstance().removeFrameCallback(swing)
                     highlight?.mark(null)
-                    // A press that went nowhere puts the circle away rather than leaving a
-                    // card sitting over the conversation.
+                    // A press that went nowhere is the third question the mark answers:
+                    // not one word and not a word to say, but the whole page in the
+                    // reader's language. Anything that was open is put away first.
                     if (!dragging && !longPressed) {
                         closeInput()
                         hideLayer()
+                        togglePage()
                     } else if (dragging) {
                         // The answer belongs to the hand that is asking and goes when the
                         // hand does, unless the reader has asked to keep it: then the card
