@@ -840,11 +840,17 @@ class HoverController(
             if (!worthReplacing(paragraph.text)) return@mapNotNull null
             Block(cover, cover, paragraph.text, paragraph.lineHeight, tight = true)
         }
-        // A recogniser can hand back the same words twice, once as a run of its own and
-        // once inside the larger run around it, and both drawn leaves the shorter one
-        // sitting over the longer as a repeated half sentence. The larger run wins.
-        val whole = blocks.filter { block ->
-            blocks.none { other -> other !== block && swallows(other.cover, block.cover) }
+        // A recogniser cuts a paragraph wherever its look changes, so a sentence with a
+        // link in it comes back in pieces. Pieces that sit directly under one another, in
+        // the same column and at the same size, are the paragraph they were cut from, and
+        // are put back together before anything is translated: a fragment translated alone
+        // is a different sentence from the one it was part of.
+        val joined = gather(blocks)
+        val whole = joined.filter { block ->
+            joined.none { other ->
+                other !== block &&
+                    (swallows(other.cover, block.cover) || restates(other, block))
+            }
         }
         for (block in whole) {
             if (block.text !in styles) {
@@ -872,6 +878,66 @@ class HoverController(
         blanked = false
         view.show(standing)
     }
+
+    /**
+     * Puts back together the runs a recogniser cut out of one paragraph.
+     *
+     * Two runs belong to the same paragraph when the second begins about one line below the
+     * first, in the same column, and its letters are the same size. Anything else - a
+     * caption under a picture, the next heading, a column beside this one - fails one of
+     * those and is left as it is.
+     */
+    private fun gather(blocks: List<Block>): List<Block> {
+        if (blocks.size < 2) return blocks
+        val order = blocks.sortedBy { it.cover.top }
+        val out = mutableListOf<Block>()
+        for (block in order) {
+            val last = out.lastOrNull()
+            if (last != null && follows(last, block)) {
+                out[out.size - 1] = Block(
+                    cover = Rect(last.cover).apply { union(block.cover) },
+                    ink = Rect(last.ink).apply { union(block.ink) },
+                    text = last.text.trimEnd() + " " + block.text.trimStart(),
+                    lineHeight = last.lineHeight,
+                    tight = last.tight,
+                )
+            } else {
+                out += block
+            }
+        }
+        return out
+    }
+
+    /** Whether [next] is the continuation of [first] rather than something else nearby. */
+    private fun follows(first: Block, next: Block): Boolean {
+        val tall = first.lineHeight.coerceAtLeast(1)
+        if (kotlin.math.abs(first.lineHeight - next.lineHeight) > tall * SAME_SIZE) return false
+        val gap = next.cover.top - first.cover.bottom
+        if (gap > tall * SAME_PARAGRAPH || gap < -tall) return false
+        val left = kotlin.math.abs(first.cover.left - next.cover.left)
+        if (left > tall * SAME_COLUMN) return false
+        val overlap = minOf(first.cover.right, next.cover.right) -
+            maxOf(first.cover.left, next.cover.left)
+        return overlap > minOf(first.cover.width(), next.cover.width()) / 2
+    }
+
+    /**
+     * Whether [whole] already says what [part] says, in a place that overlaps it.
+     *
+     * A recogniser does not always cut a paragraph the same way twice: it can hand back its
+     * first lines as a run of their own and the paragraph entire as another, whose boxes
+     * only partly overlap, so neither swallows the other by area. Both drawn puts the same
+     * sentences on the page twice at two sizes. The longer one is the one that was written.
+     */
+    private fun restates(whole: Block, part: Block): Boolean {
+        if (part.text.length >= whole.text.length) return false
+        if (!Rect.intersects(whole.cover, part.cover)) return false
+        return plain(whole.text).contains(plain(part.text))
+    }
+
+    /** Text as it compares: one run of lower-case words, however it was spaced or cut. */
+    private fun plain(text: String): String =
+        text.lowercase().replace(SPACES, " ").trim()
 
     /** Whether [outer] holds nearly all of [inner], which makes [inner] a repeat of it. */
     private fun swallows(outer: Rect, inner: Rect): Boolean {
@@ -1554,6 +1620,14 @@ class HoverController(
 
         /** The tallest a box may be, against the screen, and still be a line of text. */
         const val TALLEST_LINE = 0.09f
+
+        /** How alike two runs must be to be one paragraph: in size, in gap, in column. */
+        const val SAME_SIZE = 0.35f
+        const val SAME_PARAGRAPH = 1.6f
+        const val SAME_COLUMN = 1.2f
+
+        /** Any run of blank space, for comparing two readings of the same sentence. */
+        val SPACES = Regex("\\s+")
 
         /** What an address looks like, which is not prose and is not translated. */
         val WEB_ADDRESS = Regex("(https?://|www\\.|\\w+\\.(com|org|net|nl|de|es|co|io)\\b)")
