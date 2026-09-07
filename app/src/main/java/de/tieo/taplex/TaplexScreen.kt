@@ -359,6 +359,19 @@ private fun androidx.compose.foundation.lazy.LazyListScope.home(
 }
 
 /** A word can be looked up here too, without arming anything over another app. */
+/**
+ * How every field in the app is coloured: a filled surface with no line around it, the same
+ * one the cards are drawn on. The app had two kinds of field, one filled and one outlined,
+ * which is two answers to the same question on the same screen.
+ */
+@Composable
+private fun fieldColours() = TextFieldDefaults.colors(
+    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+    focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+    unfocusedIndicatorColor = Color.Transparent
+)
+
 @Composable
 private fun SearchField(state: UiState, actions: ScreenActions) {
     OutlinedTextField(
@@ -382,12 +395,7 @@ private fun SearchField(state: UiState, actions: ScreenActions) {
                 )
             )
         },
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-            unfocusedIndicatorColor = Color.Transparent
-        ),
+        colors = fieldColours(),
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 8.dp)
@@ -398,6 +406,10 @@ private fun SearchField(state: UiState, actions: ScreenActions) {
 @Composable
 private fun AnswerCard(answer: Explanation) {
     Card(
+        // As wide as the field it answers. Left to itself the card is only as wide as its
+        // longest line, so an answer sat under the search box with its right edge somewhere
+        // in the middle of it, and the two read as belonging to different screens.
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(18.dp)
     ) {
@@ -515,6 +527,7 @@ fun LanguagePicker(
             shape = RoundedCornerShape(16.dp),
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             placeholder = { Text(stringResource(R.string.search_language)) },
+            colors = fieldColours(),
             modifier = Modifier.fillMaxWidth()
         )
         if (shown.isEmpty()) {
@@ -845,6 +858,7 @@ private fun HoverScope(state: UiState, actions: ScreenActions) {
         shape = RoundedCornerShape(14.dp),
         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
         placeholder = { Text(stringResource(R.string.hover_scope_search)) },
+        colors = fieldColours(),
         modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, bottom = 6.dp)
     )
     // The chosen ones first, so a list of two hundred apps opens on the answer rather than
