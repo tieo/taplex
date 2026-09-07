@@ -72,6 +72,13 @@ class TaplexAccessibilityService : AccessibilityService() {
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             follow(event.packageName?.toString())
         }
+        // A page held in another language follows the one underneath: what scrolled or
+        // changed has moved its lines, and they are read again where they are now.
+        when (event.eventType) {
+            AccessibilityEvent.TYPE_VIEW_SCROLLED,
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> hover?.onContentChanged()
+        }
     }
 
     /** How tall the keyboard is right now, or zero when there is none up. */
@@ -157,7 +164,11 @@ class TaplexAccessibilityService : AccessibilityService() {
             readBetterWords = {
                 val reading = wordsReported()
                 if (carries(reading)) null else wordsRecognised()
-            }
+            },
+            // A picture of the screen, which a page being replaced in its own style needs:
+            // the node tree says where a line is and what it says, never what colour the
+            // app drew it in.
+            readFrame = { frame() }
         ).also { hover = it }
 
     /**

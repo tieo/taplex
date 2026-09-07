@@ -26,6 +26,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * The circle you drag across a conversation.
@@ -44,7 +45,9 @@ class HoverController(
     private val context: Context,
     private val windowManager: WindowManager,
     private val readWords: suspend () -> Recognised,
-    private val readBetterWords: suspend () -> Recognised?
+    private val readBetterWords: suspend () -> Recognised?,
+    /** A picture of the screen, for reading the colours a page draws its own text in. */
+    private val readFrame: suspend () -> android.graphics.Bitmap? = { null }
 ) {
 
     /** For work that must happen after the frame it was asked in, not during it. */
@@ -67,6 +70,26 @@ class HoverController(
     /** The whole page as one language, up between a tap on the mark and a tap to dismiss. */
     private var page: PageOverlayView? = null
     private var translating: Job? = null
+
+    /** Whether the page moved again while its lines were being read. */
+    private var pageAgain = false
+
+    /** The language the page is in, settled once so every scroll does not ask again. */
+    private var pageFrom: String? = null
+    private var pageInto: String = ""
+
+    /** What each line says in the chosen language, and how the page draws that line. */
+    private val said = mutableMapOf<String, String>()
+    private val styles = mutableMapOf<String, Pair<Int, Int>>()
+
+    /** When the screen was last pictured, since the system rations screenshots. */
+    private var lastFrameAt = 0L
+
+    /** What the layer is currently showing, so an unchanged page is not redrawn. */
+    private var shown = ""
+
+    /** Where each line was last seen, so one that blinks out does not take the page with it. */
+    private val placed = LinkedHashMap<String, Pair<Rect, Long>>()
 
     /** Held so it can be taken off again: back closes the field, and only while it is up. */
     private var back: OnBackInvokedCallback? = null
@@ -560,75 +583,193 @@ class HoverController(
     }
 
     /**
-     * Reads every line on screen and draws its translation over it, into the language the
-     * reader chose. The page fills in line by line as the translations arrive rather than
-     * waiting on the last of them, and the model for the pair is fetched once if it is not
-     * already there.
+     * Puts the page into the reader's language and keeps it there: the layer goes up and
+     * stays live until it is tapped away, following the page as it scrolls.
      */
     private fun translatePage() {
-        val into = Prefs(context).translatePageInto
         val view = PageOverlayView(context)
-        view.onDismiss = { dismissPage() }
         view.say(context.getString(R.string.page_translating))
         val added = runCatching { windowManager.addView(view, pageParams()) }
             .onFailure { Journal.failed("putting the page translation up", it) }
             .isSuccess
         if (!added) return
         page = view
-        // The mark is hidden while the page is read and shown, the same as during a drag,
-        // so it is never read as one of the lines and translated onto itself.
-        bubble?.masked = true
+        pageInto = Prefs(context).translatePageInto
+        pageFrom = null
+        said.clear()
+        styles.clear()
+        placed.clear()
+        Journal.note("page: on, into " + pageInto)
+        refreshPage()
+        main.postDelayed(tick, POLL_MS)
+    }
+
+    /**
+     * The page moved, so the lines have moved with it.
+     *
+     * Scrolling reports itself as a stream of events rather than one at the end, and reading
+     * the tree for each of them would put the reading behind the finger. One reading runs at
+     * a time and any events that arrive during it are answered by a single reading after it,
+     * so the lines keep up with the page without a queue of stale ones building behind them.
+     */
+    fun onContentChanged() {
+        if (page == null) return
+        // A fling reports itself while it is moving and says nothing once it stops, so the
+        // last reading of a scroll would otherwise be of the page mid-flight and the lines
+        // would come to rest in the wrong places. One more reading is always queued for
+        // shortly after the last thing heard, which is the page as it finally sits.
+        main.removeCallbacks(settle)
+        main.postDelayed(settle, SETTLE_MS)
+        if (translating?.isActive == true) {
+            pageAgain = true
+            return
+        }
+        refreshPage()
+    }
+
+    /** The reading that catches the page where the scroll left it. */
+    private val settle = Runnable { if (page != null) refreshPage() }
+
+    /**
+     * The page is read again and again for as long as it is being held in another language.
+     *
+     * Scrolling is supposed to announce itself, and often does, but a list that flings and
+     * settles can go quiet with the lines somewhere new, and a page that then keeps its old
+     * translation in the old places is worse than none. Reading on a beat does not depend on
+     * being told. A reading that finds everything where it was costs one walk of the tree
+     * and draws nothing.
+     */
+    private val tick = object : Runnable {
+        override fun run() {
+            if (page == null) return
+            if (translating?.isActive != true) refreshPage()
+            main.postDelayed(this, POLL_MS)
+        }
+    }
+
+    /**
+     * Reads the lines where they are now, translates the ones not seen before, and hands the
+     * lot to the layer.
+     *
+     * Everything already translated is kept: a scroll moves a line, it does not change what
+     * it says, so only what has newly come into view costs anything. The same is true of how
+     * a line looks, which is read off the screen once, while it is still the app's own
+     * pixels there and not the replacement.
+     */
+    private fun refreshPage() {
+        val view = page ?: return
         translating = scope.launch {
-            val recognised = readForPage()
-            val lines = linesOf(recognised)
+            val reading = withContext(Dispatchers.Default) { readWords() }
+            val lines = linesOf(reading)
             if (lines.isEmpty()) {
-                if (page === view) view.say(context.getString(R.string.page_no_text))
+                if (page === view && said.isEmpty()) {
+                    view.say(context.getString(R.string.page_no_text))
+                }
                 return@launch
             }
-            val from = lookup.detect(recognised.prose())
-            Journal.note("page: " + lines.size + " lines, " + from + " -> " + into)
-            if (from == null || from == into) {
+            val into = pageInto
+            val from = pageFrom
+                ?: lookup.detect(reading.prose())?.also { pageFrom = it }
+                ?: return@launch
+            if (from == into) {
                 if (page === view) view.say(context.getString(R.string.page_same_language))
                 return@launch
             }
-            val startedAt = System.currentTimeMillis()
-            // The model is fetched once, then every line is translated at the same time
-            // rather than one after another: a page is dozens of short strings, and waiting
-            // on each in turn is what made a page that should land at once take seconds.
-            lookup.warm(from, into)
-            val done = lines
-                .map { (bounds, text) ->
-                    async(Dispatchers.Default) {
-                        lookup.translateText(text, from, into)
-                            ?.let { PageOverlayView.Line(bounds, it) }
+            // What has just come into view, and nothing that was already there.
+            val fresh = lines.map { it.second }.distinct().filter { it !in said }
+            if (fresh.isNotEmpty()) {
+                val startedAt = System.currentTimeMillis()
+                lookup.warm(from, into)
+                fresh
+                    .map { text ->
+                        async(Dispatchers.Default) { text to lookup.translateText(text, from, into) }
                     }
+                    .awaitAll()
+                    .forEach { (text, answer) -> if (answer != null) said[text] = answer }
+                Journal.note(
+                    "page: " + fresh.size + " new lines " + from + " -> " + into + " in " +
+                        (System.currentTimeMillis() - startedAt) + "ms"
+                )
+            }
+            // Colours are taken from a picture of the screen only for lines never drawn
+            // before, whose place on screen is therefore still the app's own rather than
+            // this layer's. The picture is asked for at most now and then and never waited
+            // on for long: the system rations screenshots, and a reading that hangs on one
+            // would hold up every reading behind it and leave the page frozen mid-scroll.
+            val unstyled = lines.filter { it.second !in styles }
+            val now = System.currentTimeMillis()
+            if (unstyled.isNotEmpty() && now - lastFrameAt > FRAME_GAP_MS) {
+                lastFrameAt = now
+                val frame = withTimeoutOrNull(FRAME_WAIT_MS) { readFrame() }
+                if (frame != null) {
+                    for ((bounds, text) in unstyled) {
+                        PageOverlayView.styleOf(frame, bounds)?.let { styles[text] = it }
+                    }
+                    frame.recycle()
                 }
-                .awaitAll()
-                .filterNotNull()
-            Journal.note(
-                "page translated " + done.size + "/" + lines.size + " in " +
-                    (System.currentTimeMillis() - startedAt) + "ms"
-            )
+            }
             if (page !== view) return@launch
-            if (done.isEmpty()) view.say(context.getString(R.string.page_none)) else view.show(done)
+            // A tree read twice in a row does not always answer the same: a row mid-layout,
+            // a label that is briefly not "visible to user". Taken at face value the layer
+            // would flicker that line in and out several times a second, so a line keeps its
+            // last place for a moment after it stops being reported and only then goes.
+            val at = System.currentTimeMillis()
+            for ((bounds, text) in lines) placed[text] = bounds to at
+            placed.entries.removeAll { at - it.value.second > GRACE_MS }
+            val screen = screenSize()
+            val standing = placed.entries
+                .filter { Rect.intersects(it.value.first, screen) }
+                .map { it.value.first to it.key }
+            val shown = standing.mapNotNull { (bounds, text) ->
+                val answer = said[text] ?: return@mapNotNull null
+                val style = styles[text]
+                PageOverlayView.Line(
+                    bounds = bounds,
+                    text = answer,
+                    background = style?.first ?: PLAIN_BACKGROUND,
+                    ink = style?.second ?: PLAIN_INK,
+                )
+            }
+            if (shown.isEmpty()) {
+                view.say(context.getString(R.string.page_none))
+                return@launch
+            }
+            // A reading that found everything exactly where it was changes nothing on
+            // screen, and saying so every beat would bury the log it is read from.
+            val mark = shown.joinToString("|") {
+                it.bounds.flattenToString() + ":" + it.text.length
+            }
+            if (mark == this@HoverController.shown) return@launch
+            this@HoverController.shown = mark
+            Journal.note("page: showing " + shown.size + " of " + lines.size + " lines")
+            view.show(shown)
+        }.also { job ->
+            job.invokeOnCompletion {
+                // Whatever moved while that reading was running is answered now, once.
+                if (pageAgain && page != null) {
+                    pageAgain = false
+                    main.post { refreshPage() }
+                }
+            }
         }
     }
 
     private fun dismissPage() {
+        main.removeCallbacks(settle)
+        main.removeCallbacks(tick)
+        shown = ""
         translating?.cancel()
         translating = null
-        page?.let { runCatching { windowManager.removeView(it) } }
+        pageAgain = false
+        pageFrom = null
+        said.clear()
+        styles.clear()
+        placed.clear()
+        page?.let {
+            Journal.note("page: off")
+            runCatching { windowManager.removeView(it) }
+        }
         page = null
-        // Only the drag hides the mark otherwise, so it is safe to bring it back here: a
-        // page was taken down, and nothing else was masking it.
-        if (bubble?.active != true) bubble?.masked = false
-    }
-
-    /** The best reading of the screen there is: reported where it carries, recognised where not. */
-    private suspend fun readForPage(): Recognised {
-        val reported = readWords()
-        val better = readBetterWords()
-        return better ?: reported
     }
 
     /**
@@ -639,22 +780,52 @@ class HoverController(
      */
     private fun linesOf(found: Recognised): List<Pair<Rect, String>> {
         if (found.words.isEmpty()) return emptyList()
-        val boxes = LinkedHashMap<String, Rect>()
+        // Grouped by run rather than by the words themselves: a screen shows the same text
+        // in two places often enough - two apps of the same size, two rows saying "On" -
+        // and gathering every word of a spelling into one box would stretch a single line
+        // across the whole distance between them. The words arrive in the order the tree
+        // holds them, so one view's words are next to each other, and a run ends when the
+        // text changes or the next word is nowhere near the last.
+        val lines = mutableListOf<Pair<Rect, String>>()
+        var key: String? = null
+        var box: Rect? = null
+        val apart = (APART_DP * density)
         for (word in found.words) {
-            val key = word.line.ifBlank { word.text }
-            val box = boxes[key]
-            if (box == null) boxes[key] = Rect(word.bounds) else box.union(word.bounds)
+            val text = word.line.ifBlank { word.text }
+            val open = box
+            val near = open != null &&
+                word.bounds.top < open.bottom + apart &&
+                word.bounds.bottom > open.top - apart
+            if (text == key && open != null && near) {
+                open.union(word.bounds)
+                continue
+            }
+            if (open != null && key != null) lines += Rect(open) to key
+            key = text
+            box = Rect(word.bounds)
         }
-        return boxes.entries
-            .filter { it.key.isNotBlank() && !it.value.isEmpty }
-            .map { it.value to it.key.trim() }
+        box?.let { open -> key?.let { lines += Rect(open) to it } }
+        return lines
+            .filter { it.second.isNotBlank() && !it.first.isEmpty }
+            .map { it.first to it.second.trim() }
     }
+
+    private fun pageWindowType(): Int =
+        if (context is android.accessibilityservice.AccessibilityService) {
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+        } else {
+            CaptureService.overlayType()
+        }
 
     private fun pageParams() = WindowManager.LayoutParams(
         MATCH,
         MATCH,
-        CaptureService.overlayType(),
+        pageWindowType(),
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            // The page underneath is still the page: it is scrolled and tapped through
+            // this, which is the whole point of a translation that keeps up with it. Only
+            // the mark, in a window of its own, answers a touch.
+            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
             WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
         PixelFormat.TRANSLUCENT
@@ -896,6 +1067,13 @@ class HoverController(
         }
 
         override fun onTouchEvent(event: MotionEvent): Boolean {
+            // While the page is being held in another language the mark does one thing:
+            // put it back. Nothing underneath is Taplex's to answer, so the only way out of
+            // a translated page is the handle that started it.
+            if (page != null) {
+                if (event.actionMasked == MotionEvent.ACTION_UP) dismissPage()
+                return true
+            }
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     Journal.note(
@@ -1074,6 +1252,30 @@ class HoverController(
 
         /** How far off a word the circle may be and still mean it. */
         const val SLACK_DP = 12f
+
+        /**
+         * What a replaced line is drawn in when the screen could not be read for its
+         * colours, which is a picture the system refused rather than anything about the
+         * page. Dark on light is the safer guess: it is what most things being read are.
+         */
+        const val PLAIN_BACKGROUND = 0xFFFFFFFF.toInt()
+        const val PLAIN_INK = 0xFF101418.toInt()
+
+        /** How long after the last thing heard the page is read once more, settled. */
+        const val SETTLE_MS = 260L
+
+        /** How often a held page is read again, whether or not anything announced itself. */
+        const val POLL_MS = 180L
+
+        /** How long a line keeps its last place after it stops being reported. */
+        const val GRACE_MS = 500L
+
+        /** How far apart two words may be and still belong to the same run of a line. */
+        const val APART_DP = 24f
+
+        /** How often the screen may be pictured for colours, and how long to wait for one. */
+        const val FRAME_GAP_MS = 800L
+        const val FRAME_WAIT_MS = 1200L
 
         /** How long the circle takes to get back to the side of the screen. */
         const val PARK_MS = 260L
